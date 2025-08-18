@@ -8,6 +8,6 @@ export default defineConfig({
     port: 3011,
   },
   preview: {
-    allowedHosts: ["megawecare-app.tharapa.ai"], // Add your allowed host here
+    allowedHosts: ["shuya-app.tharapa.ai"], // Add your allowed host here
   },
 });

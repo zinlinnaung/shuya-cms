@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Grid,
@@ -15,18 +15,44 @@ import {
   Alert,
   CircularProgress,
   CssBaseline,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
 } from "@mui/material";
+import axios from "axios";
+
+const API_BASE = "https://shuyaapi.tharapa.ai/api/noti";
 
 const NotificationPage = () => {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [receiver, setReceiver] = useState("all");
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [history, setHistory] = useState([]);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success",
   });
+
+  // Fetch history
+  const fetchHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await axios.get(`${API_BASE}/history`);
+      setHistory(res.data);
+    } catch (err) {
+      console.error("Failed to fetch history", err);
+    }
+    setHistoryLoading(false);
+  };
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
 
   const handleSendNotification = async () => {
     if (!title || !content) {
@@ -40,18 +66,25 @@ const NotificationPage = () => {
 
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await axios.post(`${API_BASE}/send-all`, {
+        title,
+        content,
+      });
 
       setSnackbar({
         open: true,
         message: "Notification sent successfully!",
         severity: "success",
       });
+
       setTitle("");
       setContent("");
       setReceiver("all");
+
+      // Refresh history after sending
+      fetchHistory();
     } catch (error) {
+      console.error(error);
       setSnackbar({
         open: true,
         message: "Failed to send notification!",
@@ -67,7 +100,7 @@ const NotificationPage = () => {
       <Box
         sx={{
           backgroundColor: "#fff0f5", // light pink background
-          minHeight: "80vh",
+          minHeight: "100vh",
           p: 3,
         }}
       >
@@ -146,7 +179,7 @@ const NotificationPage = () => {
             </Card>
           </Grid>
 
-          {/* Right side - Preview */}
+          {/* Right side - History */}
           <Grid item xs={12} md={6}>
             <Card
               sx={{
@@ -157,26 +190,40 @@ const NotificationPage = () => {
             >
               <CardContent>
                 <Typography variant="h6" mb={2} sx={{ color: "#d81b60" }}>
-                  Preview
+                  Notification History
                 </Typography>
-                <Box
-                  sx={{
-                    backgroundColor: "#ffe4e9",
-                    borderRadius: "12px",
-                    p: 2,
-                    minHeight: "150px",
-                  }}
-                >
-                  <Typography
-                    variant="subtitle1"
-                    sx={{ color: "#d81b60", fontWeight: "bold" }}
-                  >
-                    {title || "Notification Title"}
-                  </Typography>
-                  <Typography variant="body2" mt={1} sx={{ color: "#333" }}>
-                    {content || "Your notification content will appear here."}
-                  </Typography>
-                </Box>
+                {historyLoading ? (
+                  <CircularProgress />
+                ) : (
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Title</TableCell>
+                        <TableCell>Content</TableCell>
+                        <TableCell>Date</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {history.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} align="center">
+                            No history found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        history.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>{item.title}</TableCell>
+                            <TableCell>{item.content}</TableCell>
+                            <TableCell>
+                              {new Date(item.createdAt).toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
           </Grid>

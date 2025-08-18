@@ -1,27 +1,21 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
-  CssBaseline,
   Typography,
-  AppBar,
-  Toolbar,
   Grid,
   Card,
   CardContent,
-  createTheme,
-  ThemeProvider,
+  CircularProgress,
 } from "@mui/material";
 import {
   PieChart,
   Pie,
   Cell,
   Tooltip,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
   LineChart,
   Line,
+  XAxis,
+  YAxis,
   ResponsiveContainer,
 } from "recharts";
 import PeopleIcon from "@mui/icons-material/People";
@@ -29,88 +23,89 @@ import ArticleIcon from "@mui/icons-material/Article";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 
-// Dark Theme
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-    background: {
-      default: "#121212",
-      paper: "#1E1E1E",
-    },
-    primary: {
-      main: "#BB86FC",
-    },
-    secondary: {
-      main: "#03DAC6",
-    },
-    text: {
-      primary: "#FFFFFF",
-    },
-  },
-});
+const COLORS = ["#BB86FC", "#03DAC6"];
 
 const Dashboard = () => {
-  // Dummy data - replace with API data
-  const stats = [
-    {
-      title: "Total Users",
-      value: 1500,
-      icon: <PeopleIcon fontSize="large" />,
-      color: "#BB86FC",
-    },
-    {
-      title: "Total Blogs",
-      value: 300,
-      icon: <ArticleIcon fontSize="large" />,
-      color: "#03DAC6",
-    },
-    {
-      title: "Bookmarks",
-      value: 1200,
-      icon: <BookmarkIcon fontSize="large" />,
-      color: "#FF9800",
-    },
-    {
-      title: "Notifications",
-      value: 800,
-      icon: <NotificationsIcon fontSize="large" />,
-      color: "#F44336",
-    },
-  ];
+  const [stats, setStats] = useState(null);
+  const [userGrowth, setUserGrowth] = useState([]);
+  const [familyPlan, setFamilyPlan] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const userGrowthData = [
-    { month: "Jan", users: 400 },
-    { month: "Feb", users: 600 },
-    { month: "Mar", users: 800 },
-    { month: "Apr", users: 1200 },
-  ];
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        // Fetch stats
+        const statsRes = await fetch(
+          "https://shuyaapi.tharapa.ai/api/dashboard/stats"
+        );
+        const statsData = await statsRes.json();
 
-  const familyPlanData = [
-    { name: "Conceiving", value: 60 },
-    { name: "Avoid Pregnant", value: 40 },
-  ];
+        setStats([
+          {
+            title: "Total Users",
+            value: statsData.totalUsers,
+            icon: <PeopleIcon fontSize="large" />,
+            color: "#BB86FC",
+          },
+          {
+            title: "Total Blogs",
+            value: statsData.totalBlogs,
+            icon: <ArticleIcon fontSize="large" />,
+            color: "#03DAC6",
+          },
+          {
+            title: "Bookmarks",
+            value: statsData.totalBookmarks,
+            icon: <BookmarkIcon fontSize="large" />,
+            color: "#FF9800",
+          },
+          {
+            title: "Notifications",
+            value: statsData.totalNotifications,
+            icon: <NotificationsIcon fontSize="large" />,
+            color: "#F44336",
+          },
+        ]);
 
-  const COLORS = ["#BB86FC", "#03DAC6"];
+        // Fetch user growth
+        const growthRes = await fetch(
+          "https://shuyaapi.tharapa.ai/api/dashboard/user-growth"
+        );
+        const growthData = await growthRes.json();
+        setUserGrowth(growthData);
+
+        // Fetch family plan distribution
+        const familyRes = await fetch(
+          "https://shuyaapi.tharapa.ai/api/dashboard/family-plan"
+        );
+        const familyData = await familyRes.json();
+        setFamilyPlan(familyData);
+      } catch (err) {
+        console.error("Error fetching dashboard data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" mt={10}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
-    // <ThemeProvider theme={darkTheme}>
-    //   <CssBaseline />
-    //   <AppBar position="static" color="primary">
-    //     <Toolbar>
-    //       <Typography variant="h6">Analytics Dashboard</Typography>
-    //     </Toolbar>
-    //   </AppBar>
-
     <Box p={3}>
       {/* Stats Cards */}
       <Grid container spacing={3}>
-        {stats.map((item, index) => (
-          <Grid item xs={12} sm={6} md={5} width={"20%"} key={index}>
+        {/* {stats.map((item, index) => (
+          <Grid item xs={12} sm={6} md={3} key={index}>
             <Card
-              sx={{
-                backgroundColor: item.color + "33",
-                borderRadius: "16px",
-              }}
+              sx={{ backgroundColor: item.color + "33", borderRadius: "16px" }}
             >
               <CardContent>
                 <Box
@@ -127,19 +122,19 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           </Grid>
-        ))}
+        ))} */}
       </Grid>
 
       {/* Charts */}
       <Grid container spacing={3} mt={3}>
-        <Grid item xs={12} md={8} sx={{ width: "50%" }}>
+        <Grid item xs={12} md={8}>
           <Card sx={{ borderRadius: "16px" }}>
             <CardContent>
               <Typography variant="h6" mb={2}>
                 User Growth
               </Typography>
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={userGrowthData}>
+                <LineChart data={userGrowth}>
                   <XAxis dataKey="month" stroke="#FFFFFF" />
                   <YAxis stroke="#FFFFFF" />
                   <Tooltip />
@@ -155,7 +150,7 @@ const Dashboard = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={4} sx={{ width: "30%" }}>
+        <Grid item xs={12} md={4}>
           <Card sx={{ borderRadius: "16px" }}>
             <CardContent>
               <Typography variant="h6" mb={2}>
@@ -164,16 +159,15 @@ const Dashboard = () => {
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={familyPlanData}
+                    data={familyPlan}
                     dataKey="value"
                     nameKey="name"
                     cx="50%"
                     cy="50%"
                     outerRadius={100}
-                    fill="#8884d8"
                     label
                   >
-                    {familyPlanData.map((entry, index) => (
+                    {familyPlan.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={COLORS[index % COLORS.length]}
@@ -188,7 +182,6 @@ const Dashboard = () => {
         </Grid>
       </Grid>
     </Box>
-    // </ThemeProvider>
   );
 };
 

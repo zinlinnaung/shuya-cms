@@ -32,7 +32,7 @@ export const RouterComponent = () => {
         <Route index element={<ReportingPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="upload" element={<ReportingPage />} />
-        <Route path="enat" element={<NotificationPage />} />
+        <Route path="noti" element={<NotificationPage />} />
         <Route path="glucomeal" element={<BlogPage />} />
         <Route path="ferrovit" element={<FerrovitDashboard />} />
       </Route>

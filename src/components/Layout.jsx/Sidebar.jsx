@@ -41,7 +41,7 @@ const Sidebar = () => {
     {
       text: "Notification",
       icon: <NotificationAddIcon />,
-      path: "/dashboard/enat",
+      path: "/dashboard/noti",
     },
     {
       text: "Blogs",
