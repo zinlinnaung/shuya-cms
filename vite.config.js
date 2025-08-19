@@ -5,7 +5,7 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 3011,
+    port: 3044,
   },
   preview: {
     allowedHosts: ["shuya-app.tharapa.ai"], // Add your allowed host here
