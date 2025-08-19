@@ -15,7 +15,7 @@ COPY . .
 RUN npm run build
 
 
-EXPOSE 3011
+EXPOSE 3044
 
 
 CMD ["npm", "run", "serve", "--", "--host", "0.0.0.0"]
