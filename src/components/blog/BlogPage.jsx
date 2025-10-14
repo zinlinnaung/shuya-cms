@@ -14,8 +14,12 @@ import {
   DialogContent,
   DialogActions,
   CircularProgress,
+  Chip,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import dayjs from "dayjs"; // 🔥 NEW
+import { LocalizationProvider, DateTimePicker } from "@mui/x-date-pickers"; // 🔥 NEW
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs"; // 🔥 NEW
 
 const API_URL = "https://shuyaapi.tharapa.ai/api/blog";
 const UPLOAD_URL = "https://shuyaapi.tharapa.ai/api/s3/upload";
@@ -31,11 +35,12 @@ const BlogPage = () => {
     title: "",
     content: "",
     imageUrl: "",
+    scheduledAt: null, // 🔥 NEW
   });
   const [imageFile, setImageFile] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  // Fetch blogs from API
+  // Fetch blogs
   const fetchBlogs = async () => {
     try {
       setLoading(true);
@@ -53,21 +58,20 @@ const BlogPage = () => {
     fetchBlogs();
   }, []);
 
-  // Convert file to base64 (remove prefix like "data:image/png;base64,")
+  // Convert file to base64
   const toBase64 = (file) =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.readAsDataURL(file); // full Data URL
-      reader.onload = () => resolve(reader.result); // keep "data:image/png;base64,..." intact
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
       reader.onerror = (error) => reject(error);
     });
 
-  // Upload image and return URL
+  // Upload image
   const uploadImage = async (file) => {
     try {
       const base64 = await toBase64(file);
       const filename = file.name.replace(/\s+/g, "_");
-
       const res = await fetch(
         `${UPLOAD_URL}?prefix=blogs&filename=${filename}`,
         {
@@ -76,11 +80,8 @@ const BlogPage = () => {
           body: JSON.stringify({ base64 }),
         }
       );
-
       if (!res.ok) throw new Error("Image upload failed");
       const data = await res.json();
-
-      // ✅ Ensure we return the correct field
       return data.url || data.Location || "";
     } catch (err) {
       console.error("Image upload error:", err);
@@ -88,7 +89,7 @@ const BlogPage = () => {
     }
   };
 
-  // Add or Update blog
+  // Save blog (create or update)
   const handleSaveBlog = async () => {
     if (!newBlog.title || !newBlog.content) return;
 
@@ -101,24 +102,32 @@ const BlogPage = () => {
         if (!imageUrl) throw new Error("Failed to upload image");
       }
 
+      // 🔥 Prepare blog data
+      const payload = {
+        ...newBlog,
+        imageUrl,
+        scheduledAt: newBlog.scheduledAt
+          ? new Date(newBlog.scheduledAt).toISOString()
+          : null,
+        isPublished: !newBlog.scheduledAt, // publish immediately if no schedule
+      };
+
       if (editingBlog) {
-        // Update blog
         await fetch(`${API_URL}/${editingBlog.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...newBlog, imageUrl }),
+          body: JSON.stringify(payload),
         });
       } else {
-        // Create blog
         await fetch(API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...newBlog, imageUrl }),
+          body: JSON.stringify(payload),
         });
       }
 
       await fetchBlogs();
-      setNewBlog({ title: "", content: "", imageUrl: "" });
+      setNewBlog({ title: "", content: "", imageUrl: "", scheduledAt: null });
       setImageFile(null);
       setEditingBlog(null);
       setOpenDialog(false);
@@ -129,23 +138,22 @@ const BlogPage = () => {
     }
   };
 
-  // Delete blog
   const handleDeleteBlog = async (id) => {
     try {
       await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-      setBlogs(blogs.filter((blog) => blog.id !== id));
+      setBlogs(blogs.filter((b) => b.id !== id));
     } catch (err) {
       console.error(err);
     }
   };
 
-  // Open edit dialog
   const handleEditBlog = (blog) => {
     setEditingBlog(blog);
     setNewBlog({
       title: blog.title,
       content: blog.content,
       imageUrl: blog.imageUrl,
+      scheduledAt: blog.scheduledAt ? dayjs(blog.scheduledAt) : null, // 🔥 NEW
     });
     setImageFile(null);
     setOpenDialog(true);
@@ -166,14 +174,7 @@ const BlogPage = () => {
       }}
     >
       {/* Header */}
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 2,
-        }}
-      >
+      <Box display="flex" justifyContent="space-between" mb={2}>
         <Typography variant="h5" sx={{ color: "#d81b60", fontWeight: "bold" }}>
           Blog Management
         </Typography>
@@ -184,23 +185,12 @@ const BlogPage = () => {
           size="small"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{
-            backgroundColor: "#fff",
-            borderRadius: "8px",
-            width: "250px",
-          }}
+          sx={{ backgroundColor: "#fff", borderRadius: "8px", width: "250px" }}
         />
       </Box>
 
-      {/* Blog Grid */}
-      <Box
-        sx={{
-          flexGrow: 1,
-          overflowY: "auto",
-          maxHeight: "calc(80vh)",
-          pr: 1,
-        }}
-      >
+      {/* Blog List */}
+      <Box flexGrow={1} overflow="auto" maxHeight="calc(80vh)" pr={1}>
         {loading ? (
           <Box display="flex" justifyContent="center" mt={5}>
             <CircularProgress />
@@ -212,23 +202,18 @@ const BlogPage = () => {
                 <Card
                   sx={{
                     borderRadius: "16px",
-                    width: "500px",
-                    height: "400px",
-                    backgroundColor: "#ffffff",
+                    backgroundColor: "#fff",
                     boxShadow: 3,
+                    height: "400px",
+                    width: "500px",
                   }}
                 >
                   <CardMedia
                     component="img"
                     image={blog.imageUrl}
                     alt={blog.title}
-                    sx={{
-                      height: 180,
-                      width: "100%",
-                      objectFit: "cover", // ✅ fills the container and crops if needed
-                    }}
+                    sx={{ height: 180, objectFit: "cover" }}
                   />
-
                   <CardContent>
                     <Typography
                       variant="h6"
@@ -236,9 +221,31 @@ const BlogPage = () => {
                     >
                       {blog.title}
                     </Typography>
-                    <Typography variant="body2" sx={{ color: "#333", mt: 1 }}>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
                       {blog.content.substring(0, 60)}...
                     </Typography>
+
+                    {/* 🔥 Show publish/scheduled status */}
+                    <Box mt={1}>
+                      {blog.isPublished ? (
+                        <Chip
+                          label="Published"
+                          color="success"
+                          size="small"
+                          sx={{ fontSize: "12px" }}
+                        />
+                      ) : (
+                        <Chip
+                          label={`Scheduled for ${dayjs(
+                            blog.scheduledAt
+                          ).format("MMM D, YYYY h:mm A")}`}
+                          color="warning"
+                          size="small"
+                          sx={{ fontSize: "12px" }}
+                        />
+                      )}
+                    </Box>
+
                     <Box mt={2} display="flex" justifyContent="space-between">
                       <Button
                         variant="contained"
@@ -286,7 +293,12 @@ const BlogPage = () => {
         }}
         onClick={() => {
           setEditingBlog(null);
-          setNewBlog({ title: "", content: "", imageUrl: "" });
+          setNewBlog({
+            title: "",
+            content: "",
+            imageUrl: "",
+            scheduledAt: null,
+          });
           setImageFile(null);
           setOpenDialog(true);
         }}
@@ -294,7 +306,7 @@ const BlogPage = () => {
         <AddIcon sx={{ color: "#fff" }} />
       </Fab>
 
-      {/* Add/Edit Blog Dialog */}
+      {/* Dialog */}
       <Dialog
         open={openDialog}
         onClose={() => setOpenDialog(false)}
@@ -308,7 +320,6 @@ const BlogPage = () => {
           <TextField
             label="Title"
             fullWidth
-            variant="outlined"
             sx={{ mt: 2 }}
             value={newBlog.title}
             onChange={(e) => setNewBlog({ ...newBlog, title: e.target.value })}
@@ -318,18 +329,15 @@ const BlogPage = () => {
             fullWidth
             multiline
             rows={4}
-            variant="outlined"
             sx={{ mt: 2 }}
             value={newBlog.content}
             onChange={(e) =>
               setNewBlog({ ...newBlog, content: e.target.value })
             }
           />
-
           <TextField
             label="Image URL (optional if file chosen)"
             fullWidth
-            variant="outlined"
             sx={{ mt: 2 }}
             value={newBlog.imageUrl}
             onChange={(e) =>
@@ -351,12 +359,21 @@ const BlogPage = () => {
             />
           </Button>
 
-          {/* ✅ Preview image if chosen */}
+          {/* 🔥 Schedule DateTime Picker */}
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <DateTimePicker
+              label="Schedule publish time (optional)"
+              value={newBlog.scheduledAt}
+              onChange={(value) =>
+                setNewBlog({ ...newBlog, scheduledAt: value })
+              }
+              sx={{ mt: 3, width: "100%" }}
+            />
+          </LocalizationProvider>
+
           {(imageFile || newBlog.imageUrl) && (
             <Box mt={2}>
-              <Typography variant="caption" sx={{ display: "block", mb: 1 }}>
-                Preview:
-              </Typography>
+              <Typography variant="caption">Preview:</Typography>
               <img
                 src={
                   imageFile ? URL.createObjectURL(imageFile) : newBlog.imageUrl
@@ -373,9 +390,7 @@ const BlogPage = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenDialog(false)} color="secondary">
-            Cancel
-          </Button>
+          <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
           <Button
             onClick={handleSaveBlog}
             variant="contained"
