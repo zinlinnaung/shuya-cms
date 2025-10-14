@@ -46,7 +46,7 @@ const Sidebar = () => {
     {
       text: "Blogs",
       icon: <BookIcon />,
-      path: "/dashboard/glucomeal",
+      path: "/dashboard/blogs",
     },
   ];
 

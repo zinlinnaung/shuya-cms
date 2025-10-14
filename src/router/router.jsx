@@ -33,7 +33,7 @@ export const RouterComponent = () => {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="upload" element={<ReportingPage />} />
         <Route path="noti" element={<NotificationPage />} />
-        <Route path="glucomeal" element={<BlogPage />} />
+        <Route path="blogs" element={<BlogPage />} />
         <Route path="ferrovit" element={<FerrovitDashboard />} />
       </Route>
 
