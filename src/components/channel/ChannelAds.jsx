@@ -10,16 +10,16 @@ import {
   CircularProgress,
 } from "@mui/material";
 
-const API_URL = "https://shuyaapi.tharapa.ai/api/open-ads/1";
+const API_URL = "https://shuyaapi.tharapa.ai/api/open-ads/2";
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
-const OpenAds = () => {
+const ChannelAds = () => {
   const [ad, setAd] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState(null);
 
-  // Fetch existing ad data
+  // Fetch the existing ad data
   const fetchAd = async () => {
     try {
       setLoading(true);
@@ -37,7 +37,7 @@ const OpenAds = () => {
     fetchAd();
   }, []);
 
-  // Convert file to Base64
+  // Convert file to base64
   const toBase64 = (file) =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -46,7 +46,7 @@ const OpenAds = () => {
       reader.onerror = (error) => reject(error);
     });
 
-  // Handle file selection with size validation
+  // Handle file change with size validation
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -81,7 +81,6 @@ const OpenAds = () => {
       });
 
       if (!res.ok) throw new Error("Failed to update ad");
-
       await fetchAd();
       setImageFile(null);
       alert("✅ Ad updated successfully!");
@@ -130,7 +129,7 @@ const OpenAds = () => {
             variant="h5"
             sx={{ color: "#d81b60", fontWeight: "bold", mb: 3 }}
           >
-            Edit Open Ad
+            Edit Channel Ad
           </Typography>
 
           {/* Image Preview */}
@@ -194,4 +193,4 @@ const OpenAds = () => {
   );
 };
 
-export default OpenAds;
+export default ChannelAds;

@@ -15,6 +15,7 @@ import NotificationPage from "../components/Noti/NotificationPage";
 import BlogPage from "../components/blog/BlogPage";
 import ReportingPage from "../components/Report/ReportingPage";
 import OpenAds from "../components/openads/OpenAds";
+import ChannelAds from "../components/channel/ChannelAds";
 
 export const RouterComponent = () => {
   return (
@@ -36,6 +37,7 @@ export const RouterComponent = () => {
         <Route path="noti" element={<NotificationPage />} />
         <Route path="blogs" element={<BlogPage />} />
         <Route path="ads" element={<OpenAds />} />
+        <Route path="channel" element={<ChannelAds />} />
       </Route>
 
       {/* PUBLIC ROUTES */}

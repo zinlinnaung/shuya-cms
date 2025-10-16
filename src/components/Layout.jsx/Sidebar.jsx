@@ -21,6 +21,7 @@ import { logout } from "../utils/auth";
 import NotificationAddIcon from "@mui/icons-material/NotificationAdd";
 import BookIcon from "@mui/icons-material/Book";
 import LiveTvIcon from "@mui/icons-material/LiveTv";
+import SmartDisplayIcon from "@mui/icons-material/SmartDisplay";
 
 export const drawerWidth = 240;
 
@@ -53,6 +54,11 @@ const Sidebar = () => {
       text: "Open Ads",
       icon: <LiveTvIcon />,
       path: "/dashboard/ads",
+    },
+    {
+      text: "Channel Ads",
+      icon: <SmartDisplayIcon />,
+      path: "/dashboard/channel",
     },
   ];
 
