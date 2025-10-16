@@ -20,6 +20,7 @@ import { Link, useLocation } from "react-router-dom";
 import { logout } from "../utils/auth";
 import NotificationAddIcon from "@mui/icons-material/NotificationAdd";
 import BookIcon from "@mui/icons-material/Book";
+import LiveTvIcon from "@mui/icons-material/LiveTv";
 
 export const drawerWidth = 240;
 
@@ -47,6 +48,11 @@ const Sidebar = () => {
       text: "Blogs",
       icon: <BookIcon />,
       path: "/dashboard/blogs",
+    },
+    {
+      text: "Open Ads",
+      icon: <LiveTvIcon />,
+      path: "/dashboard/ads",
     },
   ];
 

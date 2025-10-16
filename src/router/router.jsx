@@ -14,6 +14,7 @@ import PrivateRoute from "../components/PrivateRoute";
 import NotificationPage from "../components/Noti/NotificationPage";
 import BlogPage from "../components/blog/BlogPage";
 import ReportingPage from "../components/Report/ReportingPage";
+import OpenAds from "../components/openads/OpenAds";
 
 export const RouterComponent = () => {
   return (
@@ -34,7 +35,7 @@ export const RouterComponent = () => {
         <Route path="upload" element={<ReportingPage />} />
         <Route path="noti" element={<NotificationPage />} />
         <Route path="blogs" element={<BlogPage />} />
-        <Route path="ferrovit" element={<FerrovitDashboard />} />
+        <Route path="ads" element={<OpenAds />} />
       </Route>
 
       {/* PUBLIC ROUTES */}
