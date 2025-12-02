@@ -16,6 +16,7 @@ import BlogPage from "../components/blog/BlogPage";
 import ReportingPage from "../components/Report/ReportingPage";
 import OpenAds from "../components/openads/OpenAds";
 import ChannelAds from "../components/channel/ChannelAds";
+import UserTable from "../components/Users/UserPage";
 
 export const RouterComponent = () => {
   return (
@@ -38,6 +39,7 @@ export const RouterComponent = () => {
         <Route path="blogs" element={<BlogPage />} />
         <Route path="ads" element={<OpenAds />} />
         <Route path="channel" element={<ChannelAds />} />
+        <Route path="user" element={<UserTable />} />
       </Route>
 
       {/* PUBLIC ROUTES */}
