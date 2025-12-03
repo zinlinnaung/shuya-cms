@@ -7,7 +7,11 @@ import {
   CircularProgress,
   Typography,
   Avatar,
+  Paper,
+  InputAdornment,
 } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import { DataGrid } from "@mui/x-data-grid";
 import dayjs from "dayjs";
 
@@ -25,7 +29,7 @@ export default function UserTable() {
       const resp = await fetch("https://shuyaapi.tharapa.ai/api/user");
       if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
       const data = await resp.json();
-      const usersData = data.users || data; // adjust depending on API
+      const usersData = data.users || data;
       setUsers(usersData);
       setFilteredUsers(usersData);
     } catch (err) {
@@ -41,19 +45,18 @@ export default function UserTable() {
   }, []);
 
   const handleSearch = () => {
-    if (!searchText) {
-      setFilteredUsers(users);
-    } else {
-      const lower = searchText.toLowerCase();
-      const filtered = users.filter(
-        (u) =>
-          (u.name && u.name.toLowerCase().includes(lower)) ||
-          (u.phone && u.phone.toLowerCase().includes(lower)) ||
-          (u.Township && u.Township.toLowerCase().includes(lower)) ||
-          (u.Division && u.Division.toLowerCase().includes(lower))
-      );
-      setFilteredUsers(filtered);
-    }
+    if (!searchText.trim()) return setFilteredUsers(users);
+
+    const lower = searchText.toLowerCase();
+    const filtered = users.filter(
+      (u) =>
+        u.name?.toLowerCase().includes(lower) ||
+        u.phone?.toLowerCase().includes(lower) ||
+        u.Township?.toLowerCase().includes(lower) ||
+        u.Division?.toLowerCase().includes(lower)
+    );
+
+    setFilteredUsers(filtered);
   };
 
   const columns = [
@@ -65,7 +68,9 @@ export default function UserTable() {
         params.value ? (
           <Avatar src={params.value} alt={params.row.name} />
         ) : (
-          <Avatar>{params.row.name[0]}</Avatar>
+          <Avatar sx={{ bgcolor: "primary.main" }}>
+            {params.row.name?.[0]}
+          </Avatar>
         ),
       sortable: false,
       filterable: false,
@@ -89,43 +94,92 @@ export default function UserTable() {
     {
       field: "is_active",
       headerName: "Active",
-      flex: 0.5,
-      renderCell: (params) =>
-        params.value ? (
-          <Typography color="green">Yes</Typography>
-        ) : (
-          <Typography color="red">No</Typography>
-        ),
+      flex: 0.7,
+      renderCell: (params) => (
+        <Typography color={params.value ? "green" : "red"} fontWeight={600}>
+          {params.value ? "Yes" : "No"}
+        </Typography>
+      ),
     },
   ];
 
   return (
-    <Box sx={{ p: 2 }}>
-      <Typography variant="h5" sx={{ mb: 2 }}>
-        Users Table
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" fontWeight={700} sx={{ mb: 3 }}>
+        👤 User Management
       </Typography>
 
-      <Box sx={{ mb: 2, display: "flex", gap: 2 }}>
-        <TextField
-          label="Search by name, phone, township..."
-          variant="outlined"
-          size="small"
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          fullWidth
-        />
-        <Button variant="contained" onClick={handleSearch}>
-          Search
-        </Button>
-      </Box>
+      <Paper
+        elevation={3}
+        sx={{
+          p: 3,
+          borderRadius: 3,
+          backgroundColor: "white",
+          mb: 3,
+        }}
+      >
+        <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+          <TextField
+            label="Search users..."
+            variant="outlined"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            fullWidth
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="action" />
+                </InputAdornment>
+              ),
+            }}
+          />
 
-      {loading && <CircularProgress />}
+          <Button
+            variant="contained"
+            onClick={handleSearch}
+            sx={{ px: 3, borderRadius: 2 }}
+          >
+            Search
+          </Button>
 
-      {error && <Typography color="error">Error: {error}</Typography>}
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={() => {
+              setSearchText("");
+              setFilteredUsers(users);
+            }}
+            startIcon={<RefreshIcon />}
+            sx={{ px: 3, borderRadius: 2 }}
+          >
+            Reset
+          </Button>
+        </Box>
+      </Paper>
+
+      {loading && (
+        <Box sx={{ textAlign: "center", mt: 3 }}>
+          <CircularProgress size={40} />
+        </Box>
+      )}
+
+      {error && (
+        <Typography color="error" sx={{ mt: 2 }}>
+          Error: {error}
+        </Typography>
+      )}
 
       {!loading && !error && (
-        <div style={{ height: 600, width: "100%" }}>
+        <Paper
+          elevation={3}
+          sx={{
+            height: 600,
+            width: "100%",
+            p: 2,
+            borderRadius: 3,
+          }}
+        >
           <DataGrid
             rows={filteredUsers}
             columns={columns}
@@ -133,12 +187,21 @@ export default function UserTable() {
             rowsPerPageOptions={[10, 25, 50]}
             getRowId={(row) => row.id}
             sx={{
+              border: "none",
+              "& .MuiDataGrid-columnHeaders": {
+                backgroundColor: "#f0f4f8",
+                borderRadius: 1,
+                fontWeight: 700,
+              },
               "& .MuiDataGrid-row:hover": {
-                backgroundColor: "rgba(0,0,0,0.04)",
+                backgroundColor: "rgba(25,118,210,0.08)",
+              },
+              "& .MuiDataGrid-cell": {
+                padding: "0 12px",
               },
             }}
           />
-        </div>
+        </Paper>
       )}
     </Box>
   );
