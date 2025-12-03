@@ -22,6 +22,7 @@ import NotificationAddIcon from "@mui/icons-material/NotificationAdd";
 import BookIcon from "@mui/icons-material/Book";
 import LiveTvIcon from "@mui/icons-material/LiveTv";
 import SmartDisplayIcon from "@mui/icons-material/SmartDisplay";
+import GroupIcon from "@mui/icons-material/Group";
 
 export const drawerWidth = 240;
 
@@ -59,6 +60,11 @@ const Sidebar = () => {
       text: "Channel Ads",
       icon: <SmartDisplayIcon />,
       path: "/dashboard/channel",
+    },
+    {
+      text: "Users",
+      icon: <GroupIcon />,
+      path: "/dashboard/user",
     },
   ];
 
