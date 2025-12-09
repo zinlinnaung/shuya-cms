@@ -82,11 +82,10 @@ export default function UserTable() {
       field: "birthDate",
       headerName: "Birth Date",
       flex: 1,
-      type: "date",
-      valueGetter: (params) =>
-        params.value ? dayjs(params.value).toDate() : null,
-      valueFormatter: (params) =>
-        params.value ? dayjs(params.value).format("YYYY-MM-DD") : "",
+      valueFormatter: (params) => {
+        if (!params || !params.value) return ""; // ⬅️ prevents crash
+        return dayjs(params.value).format("YYYY-MM-DD");
+      },
     },
     { field: "status", headerName: "Status", flex: 1 },
     { field: "weight", headerName: "Weight (kg)", flex: 1 },
