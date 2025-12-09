@@ -28,8 +28,16 @@ export default function UserTable() {
     try {
       const resp = await fetch("https://shuyaapi.tharapa.ai/api/user");
       if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
+
       const data = await resp.json();
-      const usersData = data.users || data;
+      let usersData = data.users || data;
+
+      // 🔥 FIX: Normalize birthDate here so DataGrid always receives a clean string
+      usersData = usersData.map((u) => ({
+        ...u,
+        birthDate: u.birthDate ? dayjs(u.birthDate).format("YYYY-MM-DD") : "",
+      }));
+
       setUsers(usersData);
       setFilteredUsers(usersData);
     } catch (err) {
@@ -82,10 +90,6 @@ export default function UserTable() {
       field: "birthDate",
       headerName: "Birth Date",
       flex: 1,
-      valueFormatter: (params) => {
-        if (!params || !params.value) return ""; // ⬅️ prevents crash
-        return dayjs(params.value).format("YYYY-MM-DD");
-      },
     },
     { field: "status", headerName: "Status", flex: 1 },
     { field: "weight", headerName: "Weight (kg)", flex: 1 },
