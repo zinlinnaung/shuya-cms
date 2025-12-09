@@ -82,6 +82,9 @@ export default function UserTable() {
       field: "birthDate",
       headerName: "Birth Date",
       flex: 1,
+      type: "date",
+      valueGetter: (params) =>
+        params.value ? dayjs(params.value).toDate() : null,
       valueFormatter: (params) =>
         params.value ? dayjs(params.value).format("YYYY-MM-DD") : "",
     },
