@@ -1,5 +1,11 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+
+// NEW IMPORTS for MUI Date Pickers
+import { LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+
+// Existing Imports
 import Layout from "../components/Layout.jsx/Layout";
 import DashboardPage from "../pages/DashboardPage";
 import SettingsPage from "../pages/SettingPage";
@@ -23,12 +29,22 @@ export const RouterComponent = () => {
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
 
-      {/* PRIVATE ROUTES */}
+      {/* PUBLIC ROUTES */}
+      <Route path="/glucomeal" element={<Home />} />
+      <Route path="/qr" element={<QrCodeGenerator />} />
+      <Route path="/login" element={<LoginPage />} />
+
+      {/* The LocalizationProvider is placed here, wrapping the PrivateRoute 
+        section, ensuring all components inside the layout (including UserTable) 
+        have access to the date context.
+      */}
       <Route
         path="/dashboard"
         element={
           <PrivateRoute>
-            <Layout />
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <Layout />
+            </LocalizationProvider>
           </PrivateRoute>
         }
       >
@@ -41,11 +57,6 @@ export const RouterComponent = () => {
         <Route path="channel" element={<ChannelAds />} />
         <Route path="user" element={<UserTable />} />
       </Route>
-
-      {/* PUBLIC ROUTES */}
-      <Route path="/glucomeal" element={<Home />} />
-      <Route path="/qr" element={<QrCodeGenerator />} />
-      <Route path="/login" element={<LoginPage />} />
     </Routes>
   );
 };
