@@ -26,45 +26,68 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Pagination,
 } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import axios from "axios";
 
+// --- Configuration ---
 const API_BASE = "https://shuyaapi.tharapa.ai/api/noti";
+const HISTORY_LIMIT = 5; // Items per page for History List
 
 const NotificationPage = () => {
+  // =============================
+  // 1. Notification Form States
+  // =============================
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [receiver, setReceiver] = useState("all");
   const [loading, setLoading] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [history, setHistory] = useState([]);
-  const [scheduleList, setScheduleList] = useState([]);
-  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduledTime, setScheduledTime] = useState(null);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success",
   });
 
-  // Schedule states
-  const [isScheduled, setIsScheduled] = useState(false);
-  const [scheduledTime, setScheduledTime] = useState(null);
+  // =============================
+  // 2. History & Pagination States
+  // =============================
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  // Edit modal
+  // =============================
+  // 3. Schedule List States
+  // =============================
+  const [scheduleList, setScheduleList] = useState([]);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+
+  // =============================
+  // 4. Edit Modal States
+  // =============================
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
 
   // =============================
   // Fetch Functions
   // =============================
-  const fetchHistory = async () => {
+  const fetchHistory = async (page = currentPage) => {
     setHistoryLoading(true);
     try {
-      const res = await axios.get(`${API_BASE}/history`);
-      setHistory(res.data);
+      const res = await axios.get(`${API_BASE}/history`, {
+        params: {
+          page: page,
+          limit: HISTORY_LIMIT,
+        },
+      });
+      setHistory(res.data.data);
+      setTotalPages(res.data.totalPages);
+      setCurrentPage(res.data.page);
     } catch (err) {
       console.error("Failed to fetch history", err);
     }
@@ -83,9 +106,15 @@ const NotificationPage = () => {
   };
 
   useEffect(() => {
-    fetchHistory();
+    fetchHistory(1);
     fetchScheduleList();
   }, []);
+
+  // Handler for pagination control
+  const handlePageChange = (event, value) => {
+    setCurrentPage(value);
+    fetchHistory(value);
+  };
 
   // =============================
   // Create or Schedule Notification
@@ -116,7 +145,7 @@ const NotificationPage = () => {
           title,
           content,
           receiver,
-          date: scheduledTime, // ✅ match backend
+          date: scheduledTime,
         });
       } else {
         await axios.post(`${API_BASE}/send-all`, {
@@ -134,13 +163,15 @@ const NotificationPage = () => {
         severity: "success",
       });
 
+      // Clear form
       setTitle("");
       setContent("");
       setReceiver("all");
       setIsScheduled(false);
       setScheduledTime(null);
 
-      fetchHistory();
+      // Refresh lists
+      fetchHistory(currentPage);
       fetchScheduleList();
     } catch (error) {
       console.error(error);
@@ -203,6 +234,11 @@ const NotificationPage = () => {
       fetchScheduleList();
     } catch (err) {
       console.error("Failed to delete schedule", err);
+      setSnackbar({
+        open: true,
+        message: "Failed to delete schedule!",
+        severity: "error",
+      });
     }
   };
 
@@ -212,35 +248,44 @@ const NotificationPage = () => {
   return (
     <>
       <CssBaseline />
-      <Box sx={{ backgroundColor: "#fff0f5", minHeight: "100vh", p: 3 }}>
+      <Box sx={{ p: 4, backgroundColor: "#f5f7fa", minHeight: "90vh" }}>
         <Typography
-          variant="h5"
+          variant="h4"
           gutterBottom
-          sx={{ color: "#d81b60", fontWeight: "bold" }}
+          sx={{ color: "#1976d2", fontWeight: "600", mb: 4 }}
         >
-          Send Notification
+          <span role="img" aria-label="notification">
+            🔔
+          </span>{" "}
+          Notification Management
         </Typography>
 
-        <Grid container spacing={3}>
-          {/* Form Section */}
-          <Grid item xs={12} md={6}>
+        {/* Main Grid Container for 3-Column Layout (4:4:4) */}
+        <Grid container spacing={4}>
+          {/* 1. Create Notification Card (Left) */}
+          {/* Changed lg={3} to lg={4} to balance the 3-card layout */}
+          <Grid item xs={10} maxWidth={"50%"} lg={2}>
             <Card
+              variant="outlined"
               sx={{
-                borderRadius: "16px",
+                borderRadius: "12px",
+                p: 2,
                 backgroundColor: "#ffffff",
-                boxShadow: 3,
+                height: "100%", // Ensures all cards are the same height if content is short
+                boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
               }}
             >
               <CardContent>
-                <Typography variant="h6" mb={2} sx={{ color: "#d81b60" }}>
-                  Notification Details
+                <Typography variant="h6" mb={3} sx={{ color: "#1976d2" }}>
+                  Create New Notification
                 </Typography>
 
                 <TextField
                   fullWidth
                   label="Title"
                   variant="outlined"
-                  margin="normal"
+                  margin="dense"
+                  size="small"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
@@ -251,15 +296,17 @@ const NotificationPage = () => {
                   variant="outlined"
                   multiline
                   rows={4}
-                  margin="normal"
+                  margin="dense"
+                  size="small"
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                 />
 
-                <FormControl fullWidth margin="normal">
+                <FormControl fullWidth margin="dense" size="small">
                   <InputLabel>Receiver</InputLabel>
                   <Select
                     value={receiver}
+                    label="Receiver"
                     onChange={(e) => setReceiver(e.target.value)}
                   >
                     <MenuItem value="all">All Users</MenuItem>
@@ -273,10 +320,11 @@ const NotificationPage = () => {
                     <Switch
                       checked={isScheduled}
                       onChange={(e) => setIsScheduled(e.target.checked)}
-                      color="secondary"
+                      color="primary"
                     />
                   }
-                  label="Schedule this notification"
+                  label="Schedule Notification"
+                  sx={{ mt: 1, mb: 1 }}
                 />
 
                 {isScheduled && (
@@ -285,31 +333,35 @@ const NotificationPage = () => {
                       label="Schedule Date & Time"
                       value={scheduledTime}
                       onChange={(newValue) => setScheduledTime(newValue)}
-                      renderInput={(params) => (
-                        <TextField {...params} fullWidth margin="normal" />
-                      )}
+                      slotProps={{
+                        textField: {
+                          fullWidth: true,
+                          margin: "dense",
+                          size: "small",
+                        },
+                      }}
                     />
                   </LocalizationProvider>
                 )}
 
-                <Box mt={2} display="flex" justifyContent="flex-end">
+                <Box mt={3} display="flex" justifyContent="flex-end">
                   <Button
                     variant="contained"
                     disabled={loading}
                     onClick={handleSendNotification}
                     sx={{
-                      borderRadius: "12px",
-                      px: 4,
-                      backgroundColor: "#ec407a",
-                      "&:hover": { backgroundColor: "#d81b60" },
+                      borderRadius: "8px",
+                      px: 3,
+                      py: 1,
+                      minWidth: 120,
                     }}
                   >
                     {loading ? (
-                      <CircularProgress size={24} color="inherit" />
+                      <CircularProgress size={20} color="inherit" />
                     ) : isScheduled ? (
                       "Schedule"
                     ) : (
-                      "Send"
+                      "Send Now"
                     )}
                   </Button>
                 </Box>
@@ -317,101 +369,164 @@ const NotificationPage = () => {
             </Card>
           </Grid>
 
-          {/* History Section */}
-          <Grid item xs={12} md={6}>
+          {/* 2. Notification History Card (Middle) */}
+          <Grid item xs={12} lg={6} width={"45%"}>
             <Card
+              variant="outlined"
               sx={{
-                borderRadius: "16px",
+                borderRadius: "12px",
+                p: 2,
                 backgroundColor: "#ffffff",
-                boxShadow: 3,
+                height: "100%", // Ensures all cards are the same height
+                boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
               }}
             >
               <CardContent>
-                <Typography variant="h6" mb={2} sx={{ color: "#d81b60" }}>
+                <Typography variant="h6" mb={2} sx={{ color: "#1976d2" }}>
                   Notification History
                 </Typography>
                 {historyLoading ? (
-                  <CircularProgress />
+                  <Box
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                    minHeight={200}
+                  >
+                    <CircularProgress />
+                  </Box>
                 ) : (
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Title</TableCell>
-                        <TableCell>Content</TableCell>
-                        <TableCell>Date</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {history.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={3} align="center">
-                            No history found
+                  <>
+                    <Table size="medium" sx={{ width: "100%" }}>
+                      <TableHead>
+                        <TableRow sx={{ backgroundColor: "#f0f8ff" }}>
+                          <TableCell sx={{ fontWeight: "bold" }}>
+                            Title
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: "bold" }}>
+                            Content
+                          </TableCell>
+                          <TableCell sx={{ fontWeight: "bold" }}>
+                            Date
                           </TableCell>
                         </TableRow>
-                      ) : (
-                        history.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell>{item.title}</TableCell>
-                            <TableCell>{item.content}</TableCell>
-                            <TableCell>
-                              {new Date(item.createdAt).toLocaleString()}
+                      </TableHead>
+                      <TableBody>
+                        {history.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={3} align="center">
+                              No history found
                             </TableCell>
                           </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
+                        ) : (
+                          history.map((item) => (
+                            <TableRow key={item.id} hover>
+                              <TableCell>{item.title}</TableCell>
+                              <TableCell
+                                sx={{
+                                  maxWidth: 150, // Reduced max width for 4-column space
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                              >
+                                {item.content}
+                              </TableCell>
+                              <TableCell>
+                                {new Date(item.createdAt).toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                    {/* Pagination Component */}
+                    {totalPages > 1 && (
+                      <Box mt={3} display="flex" justifyContent="center">
+                        <Pagination
+                          count={totalPages}
+                          page={currentPage}
+                          onChange={handlePageChange}
+                          color="primary"
+                          showFirstButton
+                          showLastButton
+                        />
+                      </Box>
+                    )}
+                  </>
                 )}
               </CardContent>
             </Card>
+          </Grid>
 
-            {/* Scheduled Notifications */}
+          {/* 3. Scheduled Notifications Card (Right) */}
+          <Grid item xs={12} lg={12} sx={{ width: "100%" }}>
             <Card
+              variant="outlined"
               sx={{
-                mt: 3,
-                borderRadius: "16px",
+                borderRadius: "12px",
+                p: 2,
+
                 backgroundColor: "#ffffff",
-                boxShadow: 3,
+                height: "100%", // Ensures all cards are the same height
+                boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
               }}
             >
               <CardContent>
-                <Typography variant="h6" mb={2} sx={{ color: "#d81b60" }}>
+                <Typography variant="h6" mb={2} sx={{ color: "#1976d2" }}>
                   Scheduled Notifications
                 </Typography>
                 {scheduleLoading ? (
-                  <CircularProgress />
+                  <Box
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                    minHeight={150}
+                  >
+                    <CircularProgress />
+                  </Box>
                 ) : (
-                  <Table size="small">
+                  <Table size="medium">
                     <TableHead>
-                      <TableRow>
-                        <TableCell>Title</TableCell>
-                        <TableCell>Scheduled Time</TableCell>
-                        <TableCell align="right">Actions</TableCell>
+                      <TableRow sx={{ backgroundColor: "#f0f8ff" }}>
+                        <TableCell sx={{ fontWeight: "bold" }}>Title</TableCell>
+                        <TableCell sx={{ fontWeight: "bold" }}>
+                          Receiver
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: "bold" }}>
+                          Scheduled Time
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontWeight: "bold" }}>
+                          Actions
+                        </TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {scheduleList.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={3} align="center">
+                          <TableCell colSpan={4} align="center">
                             No scheduled notifications
                           </TableCell>
                         </TableRow>
                       ) : (
                         scheduleList.map((item) => (
-                          <TableRow key={item.id}>
+                          <TableRow key={item.id} hover>
                             <TableCell>{item.title}</TableCell>
+                            <TableCell>{item.receiver}</TableCell>
                             <TableCell>
                               {new Date(item.date).toLocaleString()}
                             </TableCell>
                             <TableCell align="right">
                               <Button
                                 size="small"
+                                variant="outlined"
+                                sx={{ mr: 1 }}
                                 onClick={() => handleEdit(item)}
                               >
                                 Edit
                               </Button>
                               <Button
                                 size="small"
+                                variant="outlined"
                                 color="error"
                                 onClick={() => handleDelete(item.id)}
                               >
@@ -464,12 +579,12 @@ const NotificationPage = () => {
                   <DateTimePicker
                     label="Scheduled Time"
                     value={new Date(editItem.date)}
-                    onChange={
-                      (newValue) => setEditItem({ ...editItem, date: newValue }) // <-- use `date`
+                    onChange={(newValue) =>
+                      setEditItem({ ...editItem, date: newValue })
                     }
-                    renderInput={(params) => (
-                      <TextField {...params} fullWidth margin="normal" />
-                    )}
+                    slotProps={{
+                      textField: { fullWidth: true, margin: "normal" },
+                    }}
                   />
                 </LocalizationProvider>
               </>
@@ -480,7 +595,7 @@ const NotificationPage = () => {
             <Button
               onClick={handleEditSave}
               variant="contained"
-              sx={{ backgroundColor: "#ec407a" }}
+              color="primary"
             >
               Save
             </Button>
