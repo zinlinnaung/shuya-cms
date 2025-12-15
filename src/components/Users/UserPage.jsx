@@ -1,10 +1,8 @@
-// UserTable.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Box,
   TextField,
   Button,
-  CircularProgress,
   Typography,
   Avatar,
   Paper,
@@ -17,57 +15,84 @@ import dayjs from "dayjs";
 
 export default function UserTable() {
   const [users, setUsers] = useState([]);
-  const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [searchText, setSearchText] = useState("");
 
-  const fetchUsers = async () => {
+  // State for search input
+  const [searchText, setSearchText] = useState("");
+  // State for the actual search term used to fetch data
+  const [apiSearchTerm, setApiSearchTerm] = useState("");
+
+  // Pagination State (DataGrid uses 0-based indexing for pages)
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 10,
+  });
+  const [rowCount, setRowCount] = useState(0); // Total users in DB (from meta.total)
+
+  // --- Core Fetching Logic ---
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
+
+    // Backend expects 1-based page, so we add 1 to paginationModel.page
+    const pageForBackend = paginationModel.page + 1;
+    const limit = paginationModel.pageSize;
+
+    // Construct the URL with all parameters
+    const queryParams = new URLSearchParams({
+      page: pageForBackend.toString(),
+      limit: limit.toString(),
+      search: apiSearchTerm,
+    }).toString();
+
+    const url = `https://shuyaapi.tharapa.ai/api/user?${queryParams}`;
+
     try {
-      const resp = await fetch("https://shuyaapi.tharapa.ai/api/user");
+      const resp = await fetch(url);
       if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
 
-      const data = await resp.json();
-      let usersData = data.users || data;
+      const result = await resp.json();
 
-      // 🔥 FIX: Normalize birthDate here so DataGrid always receives a clean string
-      usersData = usersData.map((u) => ({
+      // Ensure we have data and metadata in the expected format { data: [...], meta: { total: X } }
+      const usersData = (result.data || []).map((u) => ({
         ...u,
+        // Normalize birthDate
         birthDate: u.birthDate ? dayjs(u.birthDate).format("YYYY-MM-DD") : "",
       }));
 
       setUsers(usersData);
-      setFilteredUsers(usersData);
+      setRowCount(result.meta?.total || 0); // Set total count for the DataGrid
     } catch (err) {
       console.error("Fetch users failed", err);
       setError(err.message || "Failed to fetch users");
     } finally {
       setLoading(false);
     }
-  };
+  }, [paginationModel, apiSearchTerm]);
+  // Dependency array includes paginationModel and apiSearchTerm: refetches when page, limit, or search changes.
 
+  // --- Effects and Handlers ---
   useEffect(() => {
+    // Initial fetch and refetch on state change
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   const handleSearch = () => {
-    if (!searchText.trim()) return setFilteredUsers(users);
+    // When search button is clicked, update the term that triggers the API call
+    setApiSearchTerm(searchText.trim());
+    // Important: Reset to page 0 when a new search is performed
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
+  };
 
-    const lower = searchText.toLowerCase();
-    const filtered = users.filter(
-      (u) =>
-        u.name?.toLowerCase().includes(lower) ||
-        u.phone?.toLowerCase().includes(lower) ||
-        u.Township?.toLowerCase().includes(lower) ||
-        u.Division?.toLowerCase().includes(lower)
-    );
-
-    setFilteredUsers(filtered);
+  const handleReset = () => {
+    setSearchText("");
+    setApiSearchTerm("");
+    setPaginationModel((prev) => ({ ...prev, page: 0 }));
   };
 
   const columns = [
+    // ... (Keep columns definition unchanged)
     {
       field: "profile",
       headerName: "Avatar",
@@ -152,10 +177,7 @@ export default function UserTable() {
           <Button
             variant="outlined"
             color="secondary"
-            onClick={() => {
-              setSearchText("");
-              setFilteredUsers(users);
-            }}
+            onClick={handleReset}
             startIcon={<RefreshIcon />}
             sx={{ px: 3, borderRadius: 2 }}
           >
@@ -164,51 +186,51 @@ export default function UserTable() {
         </Box>
       </Paper>
 
-      {loading && (
-        <Box sx={{ textAlign: "center", mt: 3 }}>
-          <CircularProgress size={40} />
-        </Box>
-      )}
-
       {error && (
         <Typography color="error" sx={{ mt: 2 }}>
           Error: {error}
         </Typography>
       )}
 
-      {!loading && !error && (
-        <Paper
-          elevation={3}
+      {/* Main Data Grid */}
+      <Paper
+        elevation={3}
+        sx={{
+          height: 650, // Increased height slightly to accommodate DataGrid
+          width: "100%",
+          p: 2,
+          borderRadius: 3,
+        }}
+      >
+        <DataGrid
+          rows={users}
+          columns={columns}
+          getRowId={(row) => row.id}
+          // --- Server-side Pagination Props ---
+          paginationMode="server" // Tells DataGrid not to paginate locally
+          loading={loading} // Uses the DataGrid's built-in loading overlay
+          rowCount={rowCount} // Total number of rows in the DB
+          pageSizeOptions={[10, 25, 50]}
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+          // ------------------------------------
+
           sx={{
-            height: 600,
-            width: "100%",
-            p: 2,
-            borderRadius: 3,
+            border: "none",
+            "& .MuiDataGrid-columnHeaders": {
+              backgroundColor: "#f0f4f8",
+              borderRadius: 1,
+              fontWeight: 700,
+            },
+            "& .MuiDataGrid-row:hover": {
+              backgroundColor: "rgba(25,118,210,0.08)",
+            },
+            "& .MuiDataGrid-cell": {
+              padding: "0 12px",
+            },
           }}
-        >
-          <DataGrid
-            rows={filteredUsers}
-            columns={columns}
-            pageSize={10}
-            rowsPerPageOptions={[10, 25, 50]}
-            getRowId={(row) => row.id}
-            sx={{
-              border: "none",
-              "& .MuiDataGrid-columnHeaders": {
-                backgroundColor: "#f0f4f8",
-                borderRadius: 1,
-                fontWeight: 700,
-              },
-              "& .MuiDataGrid-row:hover": {
-                backgroundColor: "rgba(25,118,210,0.08)",
-              },
-              "& .MuiDataGrid-cell": {
-                padding: "0 12px",
-              },
-            }}
-          />
-        </Paper>
-      )}
+        />
+      </Paper>
     </Box>
   );
 }
