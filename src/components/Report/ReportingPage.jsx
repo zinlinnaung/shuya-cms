@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 import {
   Box,
@@ -13,10 +13,13 @@ import {
   Paper,
   Chip,
   Container,
+  Stack,
+  IconButton,
+  Divider,
+  Tooltip as MuiTooltip,
+  Avatar,
 } from "@mui/material";
 import {
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -28,497 +31,654 @@ import {
   BarChart,
   Bar,
   Legend,
+  AreaChart,
+  Area,
 } from "recharts";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import dayjs from "dayjs";
+
+// Icons
 import {
-  Download,
+  FileDownloadOutlined,
+  FilterList,
   TrendingUp,
-  People,
-  PieChart as PieChartIcon,
-  BarChart as BarChartIcon,
-  Article,
+  PeopleAltOutlined,
+  CalendarToday,
+  Equalizer,
+  InsertChartOutlined,
+  FavoriteBorder,
+  ChromeReaderModeOutlined,
+  ArrowUpward,
+  DescriptionOutlined,
+  TableChartOutlined,
+  RefreshOutlined,
 } from "@mui/icons-material";
 
-// Color palette
+// Global Theme Colors
 const COLORS = [
   "#6366f1",
   "#10b981",
   "#f59e0b",
   "#ef4444",
   "#8b5cf6",
-  "#10b981",
+  "#ec4899",
+  "#06b6d4",
 ];
-const LINE_COLOR = "#6366f1";
-const BAR_COLOR = "#10b981";
+
+// --- Sub-Components ---
+
+const MetricCard = ({ title, value, icon, color, trend }) => (
+  <Card
+    sx={{
+      borderRadius: 3,
+      boxShadow: "0 4px 12px rgba(0,0,0,0.03)",
+      border: "1px solid #f0f0f0",
+      height: "100%",
+    }}
+  >
+    <CardContent>
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="flex-start"
+      >
+        <Box>
+          <Typography
+            variant="caption"
+            color="textSecondary"
+            fontWeight={600}
+            sx={{ textTransform: "uppercase", letterSpacing: 0.5 }}
+          >
+            {title}
+          </Typography>
+          <Typography variant="h4" fontWeight={700} sx={{ my: 0.5 }}>
+            {value}
+          </Typography>
+          {trend && (
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <ArrowUpward sx={{ fontSize: 14, color: "#10b981" }} />
+              <Typography
+                variant="caption"
+                sx={{ color: "#10b981", fontWeight: 700 }}
+              >
+                {trend}%{" "}
+                <span style={{ color: "#9ca3af", fontWeight: 400 }}>
+                  vs last month
+                </span>
+              </Typography>
+            </Stack>
+          )}
+        </Box>
+        <Avatar
+          sx={{
+            bgcolor: `${color}15`,
+            color: color,
+            borderRadius: 2,
+            width: 48,
+            height: 48,
+          }}
+        >
+          {icon}
+        </Avatar>
+      </Stack>
+    </CardContent>
+  </Card>
+);
+
+const ChartCard = ({ title, children, height = 350 }) => (
+  <Card
+    sx={{
+      borderRadius: 4,
+      p: 2,
+      boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+      border: "1px solid #f1f5f9",
+    }}
+  >
+    <Typography variant="subtitle1" fontWeight={700} mb={3} color="#1e293b">
+      {title}
+    </Typography>
+    <Box sx={{ width: "100%", height }}>{children}</Box>
+  </Card>
+);
+
+// --- Main Page Component ---
 
 const ReportingPage = () => {
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [fromDate, setFromDate] = useState(
+    dayjs().subtract(30, "day").format("YYYY-MM-DD"),
+  );
+  const [toDate, setToDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [statusFilter, setStatusFilter] = useState("All");
   const [planFilter, setPlanFilter] = useState("All");
-
-  const [reportData, setReportData] = useState([]);
-  const [userGrowthData, setUserGrowthData] = useState([]);
-  const [userStatusData, setUserStatusData] = useState([]);
-  const [familyPlanData, setFamilyPlanData] = useState([]);
-  const [cycleData, setCycleData] = useState([]);
-  const [topBlogs, setTopBlogs] = useState([]);
-  const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchDashboardData = async () => {
+  const [data, setData] = useState({
+    stats: [],
+    growth: [],
+    status: [],
+    plans: [],
+    cycles: [],
+    blogs: [],
+    channels: [],
+    ageGroups: [],
+  });
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const query = {};
-      if (fromDate) query.from = fromDate;
-      if (toDate) query.to = toDate;
-      if (statusFilter && statusFilter !== "All") query.status = statusFilter;
-      if (planFilter && planFilter !== "All") query.plan = planFilter;
+      const params = {
+        from: fromDate,
+        to: toDate,
+        ...(statusFilter !== "All" && { status: statusFilter }),
+        ...(planFilter !== "All" && { plan: planFilter }),
+      };
 
-      const statsRes = await axios.get(
-        "https://shuyaapi.tharapa.ai/api/dashboard/stats",
-        { params: query }
-      );
-      setReportData([
-        {
-          name: "Total Users",
-          value: statsRes.data.totalUsers,
-          icon: <People />,
-        },
-        {
-          name: "Active Users",
-          value: statsRes.data.activeUsers,
-          icon: <TrendingUp />,
-        },
-        {
-          name: "Avg Cycle Length",
-          value: statsRes.data.avgCycleLength,
-          icon: <BarChartIcon />,
-        },
-        {
-          name: "Avg Period Length",
-          value: statsRes.data.avgPeriodLength,
-          icon: <PieChartIcon />,
-        },
-        {
-          name: "Total Blogs",
-          value: statsRes.data.totalBlogs,
-          icon: <Article />,
-        },
-        {
-          name: "Total Reactions",
-          value: statsRes.data.totalReactions,
-          icon: "❤️",
-        },
-      ]);
-
-      const [growthRes, statusRes, planRes, cycleRes, blogsRes, channelsRes] =
+      const [stats, growth, status, plans, cycles, blogs, channels, ages] =
         await Promise.all([
+          axios.get("https://shuyaapi.tharapa.ai/api/dashboard/stats", {
+            params,
+          }),
           axios.get("https://shuyaapi.tharapa.ai/api/dashboard/user-growth", {
-            params: query,
+            params,
           }),
           axios.get("https://shuyaapi.tharapa.ai/api/dashboard/user-status", {
-            params: query,
+            params,
           }),
           axios.get("https://shuyaapi.tharapa.ai/api/dashboard/family-plan", {
-            params: query,
+            params,
           }),
           axios.get("https://shuyaapi.tharapa.ai/api/dashboard/cycle-data", {
-            params: query,
+            params,
           }),
           axios.get("https://shuyaapi.tharapa.ai/api/dashboard/top-blogs", {
-            params: query,
+            params,
           }),
           axios.get("https://shuyaapi.tharapa.ai/api/channels"),
+          axios.get(
+            "https://shuyaapi.tharapa.ai/api/dashboard/age-segmentation",
+            { params },
+          ),
         ]);
 
-      setUserGrowthData(growthRes.data);
-      setUserStatusData(statusRes.data);
-      setFamilyPlanData(planRes.data);
-      setCycleData(cycleRes.data);
-      setTopBlogs(blogsRes.data);
-      setChannels(channelsRes.data);
+      setData({
+        stats: [
+          {
+            name: "Total Users",
+            value: stats.data.totalUsers || 0,
+            icon: <PeopleAltOutlined />,
+            color: "#6366f1",
+          },
+          {
+            name: "Active Users",
+            value: stats.data.activeUsers || 0,
+            icon: <TrendingUp />,
+            color: "#10b981",
+          },
+          {
+            name: "Avg Cycle",
+            value: `${stats.data.avgCycleLength || 0}d`,
+            icon: <CalendarToday />,
+            color: "#f59e0b",
+          },
+          {
+            name: "Avg Period",
+            value: `${stats.data.avgPeriodLength || 0}d`,
+            icon: <InsertChartOutlined />,
+            color: "#ef4444",
+          },
+          {
+            name: "Total Blogs",
+            value: stats.data.totalBlogs || 0,
+            icon: <ChromeReaderModeOutlined />,
+            color: "#8b5cf6",
+          },
+          {
+            name: "Reactions",
+            value: stats.data.totalReactions || 0,
+            icon: <FavoriteBorder />,
+            color: "#ec4899",
+          },
+        ],
+        growth: growth.data,
+        status: status.data,
+        plans: plans.data,
+        cycles: cycles.data,
+        blogs: blogs.data,
+        channels: channels.data,
+        ageGroups: ages.data,
+      });
     } catch (err) {
-      console.error("Error fetching dashboard data:", err);
+      console.error("Fetch Error:", err);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchDashboardData();
   }, [fromDate, toDate, statusFilter, planFilter]);
 
-  const exportToCSV = () => {
-    const headers = ["Metric,Value"];
-    const rows = reportData.map((item) => `${item.name},${item.value}`);
-    const csvContent = [headers, ...rows].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // --- Export Handlers ---
+
+  const exportCSV = () => {
+    const csvRows = data.stats.map((s) => ({ Metric: s.name, Value: s.value }));
+    const worksheet = XLSX.utils.json_to_sheet(csvRows);
+    const csv = XLSX.utils.sheet_to_csv(worksheet);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", "report.csv");
-    document.body.appendChild(link);
+    link.setAttribute("download", `Report_${dayjs().format("YYYY-MM-DD")}.csv`);
     link.click();
-    document.body.removeChild(link);
   };
 
-  const exportToExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(reportData);
+  const exportExcel = () => {
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Reports");
-    XLSX.writeFile(wb, "report.xlsx");
+    const wsStats = XLSX.utils.json_to_sheet(
+      data.stats.map((s) => ({ Metric: s.name, Value: s.value })),
+    );
+    XLSX.utils.book_append_sheet(wb, wsStats, "Summary");
+    const wsGrowth = XLSX.utils.json_to_sheet(data.growth);
+    XLSX.utils.book_append_sheet(wb, wsGrowth, "Growth Data");
+    XLSX.writeFile(wb, `Shuya_Analytics_${dayjs().format("YYYY-MM-DD")}.xlsx`);
   };
 
-  const exportToPDF = () => {
-    const input = document.body;
-    html2canvas(input).then((canvas) => {
+  const exportPDF = () => {
+    const input = document.getElementById("report-area");
+    html2canvas(input, { scale: 2, useCORS: true }).then((canvas) => {
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("p", "mm", "a4");
       const imgWidth = 190;
-      const pageHeight = 295;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-      pdf.save("report.pdf");
+      pdf.text("Shuya Analytics Report", 10, 10);
+      pdf.setFontSize(10);
+      pdf.text(`Generated on: ${dayjs().format("MMMM D, YYYY HH:mm")}`, 10, 16);
+      pdf.addImage(imgData, "PNG", 10, 25, imgWidth, imgHeight);
+      pdf.save(`Shuya_Report_${dayjs().format("YYYYMMDD")}.pdf`);
     });
   };
 
-  if (loading) {
-    return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="60vh"
-      >
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      {/* Header Section */}
-      <Box sx={{ mb: 4 }}>
-        <Box
-          display="flex"
-          justifyContent="space-between"
-          alignItems="center"
-          mb={3}
-        >
-          <Typography
-            variant="h4"
-            sx={{ color: "#1a237e", fontWeight: "bold" }}
-          >
-            Analytics Dashboard
+    <Container
+      maxWidth="xl"
+      sx={{ py: 4, bgcolor: "#f8fafc", minHeight: "100vh" }}
+    >
+      {/* 1. Page Header */}
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        justifyContent="space-between"
+        alignItems="center"
+        mb={4}
+        spacing={2}
+      >
+        <Box>
+          <Typography variant="h4" fontWeight={800} color="#0f172a">
+            Reporting Hub
           </Typography>
-          <Box display="flex" gap={1}>
-            <Button
-              variant="outlined"
-              startIcon={<Download />}
-              onClick={exportToCSV}
-              sx={{ borderColor: "#6366f1", color: "#6366f1" }}
-            >
-              CSV
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<Download />}
-              onClick={exportToExcel}
-              sx={{ borderColor: "#10b981", color: "#10b981" }}
-            >
-              Excel
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<Download />}
-              onClick={exportToPDF}
-              sx={{ borderColor: "#ef4444", color: "#ef4444" }}
-            >
-              PDF
-            </Button>
-          </Box>
+          <Typography variant="body2" color="textSecondary">
+            Track user metrics, content performance and platform health
+          </Typography>
         </Box>
 
-        {/* Filters */}
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
-            Filters
-          </Typography>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={3}>
+        <Stack direction="row" spacing={1.5}>
+          <Button
+            variant="outlined"
+            startIcon={<DescriptionOutlined />}
+            onClick={exportCSV}
+            sx={{ borderRadius: 2, textTransform: "none" }}
+          >
+            CSV
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<TableChartOutlined />}
+            color="success"
+            onClick={exportExcel}
+            sx={{ borderRadius: 2, textTransform: "none" }}
+          >
+            Excel
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<FileDownloadOutlined />}
+            onClick={exportPDF}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              px: 3,
+              bgcolor: "#1e293b",
+              "&:hover": { bgcolor: "#0f172a" },
+            }}
+          >
+            Export PDF
+          </Button>
+          <IconButton onClick={fetchData} sx={{ border: "1px solid #e2e8f0" }}>
+            <RefreshOutlined />
+          </IconButton>
+        </Stack>
+      </Stack>
+
+      {/* 2. Filter Bar */}
+      <Paper
+        sx={{
+          p: 2,
+          mb: 4,
+          borderRadius: 3,
+          boxShadow: "0 2px 10px rgba(0,0,0,0.02)",
+          border: "1px solid #e2e8f0",
+        }}
+      >
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={4}>
+            <Stack direction="row" spacing={1}>
               <TextField
                 type="date"
-                label="From Date"
-                InputLabelProps={{ shrink: true }}
+                size="small"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
+                label="Start"
+                InputLabelProps={{ shrink: true }}
                 fullWidth
-                size="small"
               />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
               <TextField
                 type="date"
-                label="To Date"
-                InputLabelProps={{ shrink: true }}
+                size="small"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
+                label="End"
+                InputLabelProps={{ shrink: true }}
                 fullWidth
-                size="small"
               />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                select
-                label="User Status"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                fullWidth
-                size="small"
-              >
-                <MenuItem value="All">All Status</MenuItem>
-                <MenuItem value="Single">Single</MenuItem>
-                <MenuItem value="Married">Married</MenuItem>
-                <MenuItem value="Pregnant">Pregnant</MenuItem>
-              </TextField>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                select
-                label="Family Plan"
-                value={planFilter}
-                onChange={(e) => setPlanFilter(e.target.value)}
-                fullWidth
-                size="small"
-              >
-                <MenuItem value="All">All Plans</MenuItem>
-                <MenuItem value="Conceiving">Conceiving</MenuItem>
-                <MenuItem value="AvoidPregnant">Avoid Pregnancy</MenuItem>
-              </TextField>
-            </Grid>
+            </Stack>
           </Grid>
-        </Paper>
-      </Box>
-
-      {/* Key Metrics */}
-      <Grid container spacing={5} sx={{ mb: 4 }}>
-        {reportData.map((item, index) => (
-          <Grid item xs={12} sm={6} md={4} lg={2} key={index}>
-            <Card
-              sx={{
-                textAlign: "center",
-                p: 2,
-                background: `linear-gradient(135deg, ${COLORS[index]}, ${COLORS[index]}20)`,
-                color: "white",
-              }}
+          <Grid item xs={12} md={2}>
+            <TextField
+              select
+              size="small"
+              fullWidth
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              label="User Status"
             >
-              <CardContent sx={{ p: "16px !important" }}>
-                <Box sx={{ fontSize: "2rem", mb: 1 }}>{item.icon}</Box>
-                <Typography variant="h4" sx={{ fontWeight: "bold", mb: 1 }}>
-                  {item.value}
-                </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                  {item.name}
-                </Typography>
-              </CardContent>
-            </Card>
+              <MenuItem value="All">All Status</MenuItem>
+              <MenuItem value="Single">Single</MenuItem>
+              <MenuItem value="Married">Married</MenuItem>
+              <MenuItem value="Pregnant">Pregnant</MenuItem>
+            </TextField>
           </Grid>
-        ))}
-      </Grid>
-
-      {/* Channel Metrics */}
-      {channels.length > 0 && (
-        <Paper sx={{ p: 3, mb: 4 }}>
-          <Typography variant="h6" sx={{ mb: 3, color: "#374151" }}>
-            Channel Performance
-          </Typography>
-          <Grid container spacing={2}>
-            {channels.map((channel, index) => (
-              <Grid item xs={6} sm={4} md={2} key={index}>
-                <Box
-                  sx={{
-                    textAlign: "center",
-                    p: 2,
-                    border: "1px solid #e5e7eb",
-                    borderRadius: 2,
+          <Grid item xs={12} md={2}>
+            <TextField
+              select
+              size="small"
+              fullWidth
+              value={planFilter}
+              onChange={(e) => setPlanFilter(e.target.value)}
+              label="Family Plan"
+            >
+              <MenuItem value="All">All Plans</MenuItem>
+              <MenuItem value="Conceiving">Conceiving</MenuItem>
+              <MenuItem value="AvoidPregnant">Avoid Pregnancy</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              {[7, 30, 90].map((days) => (
+                <Button
+                  key={days}
+                  size="small"
+                  variant="soft"
+                  color="inherit"
+                  onClick={() => {
+                    setFromDate(
+                      dayjs().subtract(days, "day").format("YYYY-MM-DD"),
+                    );
+                    setToDate(dayjs().format("YYYY-MM-DD"));
                   }}
+                  sx={{ borderRadius: 2, bgcolor: "#f1f5f9", fontWeight: 600 }}
                 >
-                  <Typography variant="body2" sx={{ color: "#6b7280", mb: 1 }}>
-                    {channel.name}
-                  </Typography>
-                  <Typography
-                    variant="h6"
-                    sx={{
-                      fontWeight: "bold",
-                      color: COLORS[index % COLORS.length],
-                    }}
-                  >
-                    {channel.clickCount ?? 0}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: "#9ca3af" }}>
-                    Clicks
-                  </Typography>
-                </Box>
-              </Grid>
-            ))}
+                  Last {days}D
+                </Button>
+              ))}
+            </Stack>
           </Grid>
-        </Paper>
-      )}
-
-      {/* Charts Grid */}
-      <Grid container spacing={3}>
-        {/* User Growth Chart */}
-        <Grid item xs={12} lg={10} sx={{ width: "50%" }}>
-          <Card sx={{ p: 2, height: "400px" }}>
-            <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
-              User Growth Over Time
-            </Typography>
-            <ResponsiveContainer width="100%" height="90%">
-              <LineChart data={userGrowthData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="users"
-                  stroke={LINE_COLOR}
-                  strokeWidth={3}
-                  dot={{ fill: LINE_COLOR, strokeWidth: 2, r: 4 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </Card>
         </Grid>
+      </Paper>
 
-        {/* User Status Distribution */}
-        <Grid item xs={12} lg={4} sx={{ width: "30%" }}>
-          <Card sx={{ p: 2, height: "400px" }}>
-            <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
-              User Status Distribution
-            </Typography>
-            <ResponsiveContainer width="100%" height="90%">
-              <PieChart>
-                <Pie
-                  data={userStatusData}
-                  dataKey="value"
-                  outerRadius={100}
-                  label={({ name, percent }) =>
-                    `${name} (${(percent * 100).toFixed(0)}%)`
-                  }
-                >
-                  {userStatusData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </Card>
-        </Grid>
-
-        {/* Cycle Tracking */}
-        <Grid item xs={12} lg={8} sx={{ width: "50%" }}>
-          <Card sx={{ p: 2, height: "400px" }}>
-            <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
-              Cycles Tracked per Month
-            </Typography>
-            <ResponsiveContainer width="100%" height="90%">
-              <BarChart data={cycleData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="cycles" fill={BAR_COLOR} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </Card>
-        </Grid>
-
-        {/* Family Plan Distribution */}
-        <Grid item xs={12} lg={4} sx={{ width: "30%" }}>
-          <Card sx={{ p: 2, height: "400px" }}>
-            <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
-              Family Plan Distribution
-            </Typography>
-            <ResponsiveContainer width="100%" height="90%">
-              <PieChart>
-                <Pie
-                  data={familyPlanData}
-                  dataKey="value"
-                  outerRadius={100}
-                  label={({ name, percent }) =>
-                    `${name} (${(percent * 100).toFixed(0)}%)`
-                  }
-                >
-                  {familyPlanData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[(index + 2) % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </Card>
-        </Grid>
-
-        {/* Top Blogs */}
-        <Grid item xs={12}>
-          <Card sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 3, color: "#374151" }}>
-              Top Performing Blogs
-            </Typography>
-            <Grid container spacing={2}>
-              {topBlogs.map((blog, index) => (
-                <Grid item xs={12} md={6} lg={4} key={index}>
-                  <Paper sx={{ p: 2, border: "1px solid #e5e7eb" }}>
-                    <Typography
-                      variant="subtitle1"
-                      sx={{ fontWeight: "bold", mb: 1 }}
-                    >
-                      {blog.title}
-                    </Typography>
-                    <Box
-                      display="flex"
-                      justifyContent="space-between"
-                      alignItems="center"
-                    >
-                      <Chip
-                        label={`${blog.reactions} Reactions`}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                      />
-                      <Typography variant="caption" color="textSecondary">
-                        #{index + 1}
-                      </Typography>
-                    </Box>
-                  </Paper>
+      {/* 3. Report Content Area */}
+      <div id="report-area">
+        {loading ? (
+          <Box
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            height="40vh"
+          >
+            <CircularProgress thickness={5} size={50} />
+          </Box>
+        ) : (
+          <>
+            {/* Metric Cards Row */}
+            <Grid container spacing={3} mb={4}>
+              {data.stats.map((metric, i) => (
+                <Grid item xs={12} sm={6} md={4} lg={2} key={i}>
+                  <MetricCard {...metric} />
                 </Grid>
               ))}
             </Grid>
-          </Card>
-        </Grid>
-      </Grid>
+
+            {/* Main Charts Row */}
+            <Grid container spacing={3} mb={4}>
+              <Grid item xs={12} lg={8}>
+                <ChartCard title="User Acquisition Growth">
+                  <ResponsiveContainer>
+                    <AreaChart
+                      data={data.growth}
+                      margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient
+                          id="colorUser"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="#6366f1"
+                            stopOpacity={0.2}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="#6366f1"
+                            stopOpacity={0}
+                          />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        stroke="#f1f5f9"
+                      />
+                      <XAxis
+                        dataKey="month"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: "#64748b" }}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: "#64748b" }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: 12,
+                          border: "none",
+                          boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="users"
+                        stroke="#6366f1"
+                        strokeWidth={3}
+                        fillOpacity={1}
+                        fill="url(#colorUser)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+              </Grid>
+
+              <Grid item xs={12} lg={4}>
+                <ChartCard title="Family Plan Adoption">
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={data.plans}
+                        dataKey="value"
+                        innerRadius={70}
+                        outerRadius={100}
+                        paddingAngle={8}
+                        cornerRadius={4}
+                      >
+                        {data.plans.map((_, i) => (
+                          <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend
+                        verticalAlign="bottom"
+                        align="center"
+                        iconType="circle"
+                        wrapperStyle={{ paddingTop: 20 }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+              </Grid>
+            </Grid>
+
+            {/* Secondary Charts Row */}
+            <Grid container spacing={3} mb={4}>
+              <Grid item xs={12} md={6}>
+                <ChartCard title="Age Group Segmentation">
+                  <ResponsiveContainer>
+                    <BarChart data={data.ageGroups} layout="vertical">
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        horizontal={true}
+                        vertical={false}
+                        stroke="#f1f5f9"
+                      />
+                      <XAxis type="number" hide />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        axisLine={false}
+                        tickLine={false}
+                        width={80}
+                      />
+                      <Tooltip cursor={{ fill: "transparent" }} />
+                      <Bar
+                        dataKey="value"
+                        fill="#8b5cf6"
+                        radius={[0, 4, 4, 0]}
+                        barSize={25}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <ChartCard title="Channel Traffic Source">
+                  <Grid container spacing={2} sx={{ mt: 1 }}>
+                    {data.channels.map((ch, idx) => (
+                      <Grid item xs={6} key={idx}>
+                        <Box
+                          sx={{
+                            p: 2,
+                            borderRadius: 2,
+                            border: "1px solid #f1f5f9",
+                            bgcolor: "#fff",
+                          }}
+                        >
+                          <Typography variant="caption" color="textSecondary">
+                            {ch.name}
+                          </Typography>
+                          <Typography variant="h6" fontWeight={700}>
+                            {ch.clickCount || 0}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </ChartCard>
+              </Grid>
+            </Grid>
+
+            {/* Top Content Row */}
+            <Card sx={{ borderRadius: 4, p: 3, border: "1px solid #f1f5f9" }}>
+              <Typography variant="h6" fontWeight={700} mb={3}>
+                🏆 Most Engaged Content
+              </Typography>
+              <Grid container spacing={2}>
+                {data.blogs.map((blog, i) => (
+                  <Grid item xs={12} key={i}>
+                    <Box
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="space-between"
+                      p={2}
+                      sx={{
+                        bgcolor: "#f8fafc",
+                        borderRadius: 3,
+                        "&:hover": { bgcolor: "#f1f5f9" },
+                        transition: "0.2s",
+                      }}
+                    >
+                      <Stack direction="row" spacing={3} alignItems="center">
+                        <Typography
+                          variant="h6"
+                          color="primary.main"
+                          fontWeight={800}
+                          sx={{ minWidth: 30 }}
+                        >
+                          0{i + 1}
+                        </Typography>
+                        <Box>
+                          <Typography fontWeight={700} color="#334155">
+                            {blog.title}
+                          </Typography>
+                          <Typography variant="caption" color="textSecondary">
+                            Community favorite article
+                          </Typography>
+                        </Box>
+                      </Stack>
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <Chip
+                          label={`${blog.reactions} Reactions`}
+                          size="small"
+                          variant="soft"
+                          color="secondary"
+                          sx={{ fontWeight: 600 }}
+                        />
+                        <IconButton size="small">
+                          <ChromeReaderModeOutlined fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    </Box>
+                  </Grid>
+                ))}
+              </Grid>
+            </Card>
+          </>
+        )}
+      </div>
     </Container>
   );
 };
