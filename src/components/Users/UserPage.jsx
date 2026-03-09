@@ -158,21 +158,21 @@ export default function UserTable() {
 
   // --- DataGrid Columns ---
   const columns = [
-    {
-      field: "profile",
-      headerName: "Avatar",
-      width: 80,
-      renderCell: (params) =>
-        params.value ? (
-          <Avatar src={params.value} alt={params.row.name} />
-        ) : (
-          <Avatar sx={{ bgcolor: "primary.main" }}>
-            {params.row.name?.[0]}
-          </Avatar>
-        ),
-      sortable: false,
-      filterable: false,
-    },
+    // {
+    //   field: "profile",
+    //   headerName: "Avatar",
+    //   width: 80,
+    //   renderCell: (params) =>
+    //     params.value ? (
+    //       <Avatar src={params.value} alt={params.row.name} />
+    //     ) : (
+    //       <Avatar sx={{ bgcolor: "primary.main" }}>
+    //         {params.row.name?.[0]}
+    //       </Avatar>
+    //     ),
+    //   sortable: false,
+    //   filterable: false,
+    // },
     // { field: "id", headerName: "ID", width: 70 },
     { field: "name", headerName: "Name", flex: 1 },
     { field: "phone", headerName: "Phone", flex: 1 },
