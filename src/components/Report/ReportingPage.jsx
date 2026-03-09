@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import {
   Box,
@@ -13,13 +13,10 @@ import {
   Paper,
   Chip,
   Container,
-  Stack,
-  IconButton,
-  Avatar,
-  Alert,
-  Snackbar,
 } from "@mui/material";
 import {
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -31,428 +28,504 @@ import {
   BarChart,
   Bar,
   Legend,
-  AreaChart,
-  Area,
 } from "recharts";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-import dayjs from "dayjs";
-
-// Icons
 import {
-  FileDownloadOutlined,
+  Download,
   TrendingUp,
-  PeopleAltOutlined,
-  CalendarToday,
-  InsertChartOutlined,
-  FavoriteBorder,
-  ChromeReaderModeOutlined,
-  ArrowUpward,
-  DescriptionOutlined,
-  TableChartOutlined,
-  RefreshOutlined,
-  ErrorOutline,
+  People,
+  PieChart as PieChartIcon,
+  BarChart as BarChartIcon,
+  Article,
 } from "@mui/icons-material";
 
+// Color palette
 const COLORS = [
   "#6366f1",
   "#10b981",
   "#f59e0b",
   "#ef4444",
   "#8b5cf6",
-  "#ec4899",
-  "#06b6d4",
+  "#10b981",
 ];
-
-// --- Sub-Components ---
-const MetricCard = ({ title, value, icon, color, trend }) => (
-  <Card
-    sx={{
-      borderRadius: 3,
-      boxShadow: "0 4px 12px rgba(0,0,0,0.03)",
-      border: "1px solid #f0f0f0",
-      height: "100%",
-    }}
-  >
-    <CardContent>
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="flex-start"
-      >
-        <Box>
-          <Typography
-            variant="caption"
-            color="textSecondary"
-            fontWeight={600}
-            sx={{ textTransform: "uppercase", letterSpacing: 0.5 }}
-          >
-            {title}
-          </Typography>
-          <Typography variant="h4" fontWeight={700} sx={{ my: 0.5 }}>
-            {value}
-          </Typography>
-        </Box>
-        <Avatar
-          sx={{
-            bgcolor: `${color}15`,
-            color: color,
-            borderRadius: 2,
-            width: 48,
-            height: 48,
-          }}
-        >
-          {icon}
-        </Avatar>
-      </Stack>
-    </CardContent>
-  </Card>
-);
-
-const ChartCard = ({ title, children, height = 350, loading }) => (
-  <Card
-    sx={{
-      borderRadius: 4,
-      p: 2,
-      boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
-      border: "1px solid #f1f5f9",
-      position: "relative",
-    }}
-  >
-    <Typography variant="subtitle1" fontWeight={700} mb={3} color="#1e293b">
-      {title}
-    </Typography>
-    <Box
-      sx={{
-        width: "100%",
-        height,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      {loading ? <CircularProgress size={30} /> : children}
-    </Box>
-  </Card>
-);
+const LINE_COLOR = "#6366f1";
+const BAR_COLOR = "#10b981";
 
 const ReportingPage = () => {
-  const [fromDate, setFromDate] = useState(
-    dayjs().subtract(30, "day").format("YYYY-MM-DD"),
-  );
-  const [toDate, setToDate] = useState(dayjs().format("YYYY-MM-DD"));
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [planFilter, setPlanFilter] = useState("All");
+
+  const [reportData, setReportData] = useState([]);
+  // Changed from userGrowthData to ageSegmentationData
+  const [ageSegmentationData, setAgeSegmentationData] = useState([]);
+  const [userStatusData, setUserStatusData] = useState([]);
+  const [familyPlanData, setFamilyPlanData] = useState([]);
+  const [cycleData, setCycleData] = useState([]);
+  const [topBlogs, setTopBlogs] = useState([]);
+  const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
 
-  const [data, setData] = useState({
-    stats: [],
-    growth: [],
-    status: [],
-    plans: [],
-    cycles: [],
-    blogs: [],
-    channels: [],
-    ageGroups: [],
-  });
-
-  const abortController = useRef(null);
-
-  const fetchData = useCallback(async () => {
-    // Cancel any ongoing requests if filters change rapidly
-    if (abortController.current) abortController.current.abort();
-    abortController.current = new AbortController();
-
-    setLoading(true);
-    setError(null);
-
-    const params = {
-      from: fromDate,
-      to: toDate,
-      ...(statusFilter !== "All" && { status: statusFilter }),
-      ...(planFilter !== "All" && { plan: planFilter }),
-    };
-
-    const API_BASE = "https://shuyaapi.tharapa.ai/api";
-
+  const fetchDashboardData = async () => {
     try {
-      // 1. Fetch Core Stats First (Fastest)
-      const statsRes = await axios.get(`${API_BASE}/dashboard/stats`, {
-        params,
-        signal: abortController.current.signal,
-      });
+      setLoading(true);
+      const query = {};
+      if (fromDate) query.from = fromDate;
+      if (toDate) query.to = toDate;
+      if (statusFilter && statusFilter !== "All") query.status = statusFilter;
+      if (planFilter && planFilter !== "All") query.plan = planFilter;
 
-      const coreStats = [
+      const statsRes = await axios.get(
+        "https://shuyaapi.tharapa.ai/api/dashboard/stats",
+        { params: query },
+      );
+      setReportData([
         {
           name: "Total Users",
-          value: statsRes.data.totalUsers || 0,
-          icon: <PeopleAltOutlined />,
-          color: "#6366f1",
+          value: statsRes.data.totalUsers,
+          icon: <People />,
         },
         {
           name: "Active Users",
-          value: statsRes.data.activeUsers || 0,
+          value: statsRes.data.activeUsers,
           icon: <TrendingUp />,
-          color: "#10b981",
         },
         {
-          name: "Avg Cycle",
-          value: `${statsRes.data.avgCycleLength || 0}d`,
-          icon: <CalendarToday />,
-          color: "#f59e0b",
+          name: "Avg Cycle Length",
+          value: statsRes.data.avgCycleLength,
+          icon: <BarChartIcon />,
         },
         {
-          name: "Avg Period",
-          value: `${statsRes.data.avgPeriodLength || 0}d`,
-          icon: <InsertChartOutlined />,
-          color: "#ef4444",
+          name: "Avg Period Length",
+          value: statsRes.data.avgPeriodLength,
+          icon: <PieChartIcon />,
         },
         {
           name: "Total Blogs",
-          value: statsRes.data.totalBlogs || 0,
-          icon: <ChromeReaderModeOutlined />,
-          color: "#8b5cf6",
+          value: statsRes.data.totalBlogs,
+          icon: <Article />,
         },
         {
-          name: "Reactions",
-          value: statsRes.data.totalReactions || 0,
-          icon: <FavoriteBorder />,
-          color: "#ec4899",
+          name: "Total Reactions",
+          value: statsRes.data.totalReactions,
+          icon: "❤️",
         },
-      ];
-
-      setData((prev) => ({ ...prev, stats: coreStats }));
-
-      // 2. Staggered Loading for heavy charts to prevent 504 Gateway Timeout
-      const [growth, status, plans, ages, blogs, channels] = await Promise.all([
-        axios
-          .get(`${API_BASE}/dashboard/user-growth`, { params })
-          .catch(() => ({ data: [] })),
-        axios
-          .get(`${API_BASE}/dashboard/user-status`, { params })
-          .catch(() => ({ data: [] })),
-        axios
-          .get(`${API_BASE}/dashboard/family-plan`, { params })
-          .catch(() => ({ data: [] })),
-        axios
-          .get(`${API_BASE}/dashboard/age-segmentation`, { params })
-          .catch(() => ({ data: [] })),
-        axios
-          .get(`${API_BASE}/dashboard/top-blogs`, { params })
-          .catch(() => ({ data: [] })),
-        axios.get(`${API_BASE}/channels`).catch(() => ({ data: [] })),
       ]);
 
-      setData({
-        stats: coreStats,
-        growth: growth.data,
-        status: status.data,
-        plans: plans.data,
-        ageGroups: ages.data,
-        blogs: blogs.data,
-        channels: channels.data,
-      });
+      // Updated the first endpoint to age-segmentation
+      const [ageRes, statusRes, planRes, cycleRes, blogsRes, channelsRes] =
+        await Promise.all([
+          axios.get(
+            "https://shuyaapi.tharapa.ai/api/dashboard/age-segmentation",
+            {
+              params: query,
+            },
+          ),
+          axios.get("https://shuyaapi.tharapa.ai/api/dashboard/user-status", {
+            params: query,
+          }),
+          axios.get("https://shuyaapi.tharapa.ai/api/dashboard/family-plan", {
+            params: query,
+          }),
+          axios.get("https://shuyaapi.tharapa.ai/api/dashboard/cycle-data", {
+            params: query,
+          }),
+          axios.get("https://shuyaapi.tharapa.ai/api/dashboard/top-blogs", {
+            params: query,
+          }),
+          axios.get("https://shuyaapi.tharapa.ai/api/channels"),
+        ]);
+
+      setAgeSegmentationData(ageRes.data); // Mapping the age range data
+      setUserStatusData(statusRes.data);
+      setFamilyPlanData(planRes.data);
+      setCycleData(cycleRes.data);
+      setTopBlogs(blogsRes.data);
+      setChannels(channelsRes.data);
     } catch (err) {
-      if (err.name !== "CanceledError") {
-        setError(
-          "Server is taking too long to respond. Please try a shorter date range.",
-        );
-      }
+      console.error("Error fetching dashboard data:", err);
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate, statusFilter, planFilter]);
-
-  useEffect(() => {
-    fetchData();
-    return () => abortController.current?.abort();
-  }, [fetchData]);
-
-  // Export Logic
-  const exportExcel = () => {
-    const wb = XLSX.utils.book_new();
-    const wsStats = XLSX.utils.json_to_sheet(
-      data.stats.map((s) => ({ Metric: s.name, Value: s.value })),
-    );
-    XLSX.utils.book_append_sheet(wb, wsStats, "Summary");
-    XLSX.writeFile(wb, `Shuya_Analytics_${dayjs().format("YYYY-MM-DD")}.xlsx`);
   };
 
-  return (
-    <Container
-      maxWidth="xl"
-      sx={{ py: 4, bgcolor: "#f8fafc", minHeight: "100vh" }}
-    >
-      <Stack
-        direction={{ xs: "column", sm: "row" }}
-        justifyContent="space-between"
-        alignItems="center"
-        mb={4}
-        spacing={2}
-      >
-        <Box>
-          <Typography variant="h4" fontWeight={800} color="#0f172a">
-            Dashboard
-          </Typography>
-          {/* <Typography variant="body2" color="textSecondary">
-            Track real-time platform metrics
-          </Typography> */}
-        </Box>
-        <Stack direction="row" spacing={1.5}>
-          <Button
-            variant="outlined"
-            color="success"
-            startIcon={<TableChartOutlined />}
-            onClick={exportExcel}
-          >
-            Excel
-          </Button>
-          <IconButton onClick={fetchData} sx={{ border: "1px solid #e2e8f0" }}>
-            <RefreshOutlined />
-          </IconButton>
-        </Stack>
-      </Stack>
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fromDate, toDate, statusFilter, planFilter]);
 
-      {/* Filter Bar */}
-      <Paper sx={{ p: 2, mb: 4, borderRadius: 3, border: "1px solid #e2e8f0" }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
-            <Stack direction="row" spacing={1}>
+  const exportToCSV = () => {
+    const headers = ["Metric,Value"];
+    const rows = reportData.map((item) => `${item.name},${item.value}`);
+    const csvContent = [headers, ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportToExcel = () => {
+    const ws = XLSX.utils.json_to_sheet(reportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Reports");
+    XLSX.writeFile(wb, "report.xlsx");
+  };
+
+  const exportToPDF = () => {
+    const input = document.body;
+    html2canvas(input).then((canvas) => {
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      const imgWidth = 190;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      pdf.save("report.pdf");
+    });
+  };
+
+  if (loading) {
+    return (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="60vh"
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  return (
+    <Container maxWidth="xl" sx={{ py: 3 }}>
+      {/* Header Section */}
+      <Box sx={{ mb: 4 }}>
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          mb={3}
+        >
+          <Typography
+            variant="h4"
+            sx={{ color: "#1a237e", fontWeight: "bold" }}
+          >
+            Analytics Dashboard
+          </Typography>
+          <Box display="flex" gap={1}>
+            <Button
+              variant="outlined"
+              startIcon={<Download />}
+              onClick={exportToCSV}
+              sx={{ borderColor: "#6366f1", color: "#6366f1" }}
+            >
+              CSV
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Download />}
+              onClick={exportToExcel}
+              sx={{ borderColor: "#10b981", color: "#10b981" }}
+            >
+              Excel
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Download />}
+              onClick={exportToPDF}
+              sx={{ borderColor: "#ef4444", color: "#ef4444" }}
+            >
+              PDF
+            </Button>
+          </Box>
+        </Box>
+
+        {/* Filters */}
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
+            Filters
+          </Typography>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={6} md={3}>
               <TextField
                 type="date"
-                size="small"
+                label="From Date"
+                InputLabelProps={{ shrink: true }}
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
-                label="Start"
-                InputLabelProps={{ shrink: true }}
                 fullWidth
+                size="small"
               />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
               <TextField
                 type="date"
-                size="small"
+                label="To Date"
+                InputLabelProps={{ shrink: true }}
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
-                label="End"
-                InputLabelProps={{ shrink: true }}
                 fullWidth
+                size="small"
               />
-            </Stack>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Stack direction="row" spacing={1}>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
               <TextField
                 select
-                size="small"
-                fullWidth
+                label="User Status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                label="Status"
+                fullWidth
+                size="small"
               >
                 <MenuItem value="All">All Status</MenuItem>
                 <MenuItem value="Single">Single</MenuItem>
                 <MenuItem value="Married">Married</MenuItem>
                 <MenuItem value="Pregnant">Pregnant</MenuItem>
               </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
               <TextField
                 select
-                size="small"
-                fullWidth
+                label="Family Plan"
                 value={planFilter}
                 onChange={(e) => setPlanFilter(e.target.value)}
-                label="Plan"
+                fullWidth
+                size="small"
               >
                 <MenuItem value="All">All Plans</MenuItem>
                 <MenuItem value="Conceiving">Conceiving</MenuItem>
                 <MenuItem value="AvoidPregnant">Avoid Pregnancy</MenuItem>
               </TextField>
-            </Stack>
+            </Grid>
           </Grid>
-        </Grid>
-      </Paper>
+        </Paper>
+      </Box>
 
-      {error && (
-        <Alert
-          severity="error"
-          icon={<ErrorOutline />}
-          sx={{ mb: 3, borderRadius: 2 }}
-        >
-          {error}
-        </Alert>
+      {/* Key Metrics */}
+      <Grid container spacing={5} sx={{ mb: 4 }}>
+        {reportData.map((item, index) => (
+          <Grid item xs={12} sm={6} md={4} lg={2} key={index}>
+            <Card
+              sx={{
+                textAlign: "center",
+                p: 2,
+                background: `linear-gradient(135deg, ${COLORS[index]}, ${COLORS[index]}20)`,
+                color: "white",
+              }}
+            >
+              <CardContent sx={{ p: "16px !important" }}>
+                <Box sx={{ fontSize: "2rem", mb: 1 }}>{item.icon}</Box>
+                <Typography variant="h4" sx={{ fontWeight: "bold", mb: 1 }}>
+                  {item.value}
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  {item.name}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Channel Metrics */}
+      {channels.length > 0 && (
+        <Paper sx={{ p: 3, mb: 4 }}>
+          <Typography variant="h6" sx={{ mb: 3, color: "#374151" }}>
+            Channel Performance
+          </Typography>
+          <Grid container spacing={2}>
+            {channels.map((channel, index) => (
+              <Grid item xs={6} sm={4} md={2} key={index}>
+                <Box
+                  sx={{
+                    textAlign: "center",
+                    p: 2,
+                    border: "1px solid #e5e7eb",
+                    borderRadius: 2,
+                  }}
+                >
+                  <Typography variant="body2" sx={{ color: "#6b7280", mb: 1 }}>
+                    {channel.name}
+                  </Typography>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      fontWeight: "bold",
+                      color: COLORS[index % COLORS.length],
+                    }}
+                  >
+                    {channel.clickCount ?? 0}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: "#9ca3af" }}>
+                    Clicks
+                  </Typography>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </Paper>
       )}
 
-      <div id="report-area">
-        <Grid container spacing={3} mb={4}>
-          {data.stats.map((metric, i) => (
-            <Grid item xs={12} sm={6} md={4} lg={2} key={i}>
-              <MetricCard {...metric} />
+      {/* Charts Grid */}
+      <Grid container spacing={3}>
+        {/* MODIFIED: Age Segmentation Chart (Replaces User Growth) */}
+        {/* Age Segmentation Chart */}
+        <Grid item xs={12} lg={10} sx={{ width: "50%" }}>
+          <Card sx={{ p: 2, height: "400px" }}>
+            <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
+              Age Segmentation
+            </Typography>
+            <ResponsiveContainer width="100%" height="90%">
+              <BarChart data={ageSegmentationData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                {/* Changed dataKey to "name" to match your JSON */}
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Bar
+                  /* Changed dataKey to "value" to match your JSON */
+                  dataKey="value"
+                  fill={COLORS[0]}
+                  radius={[4, 4, 0, 0]}
+                  name="Users"
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+        </Grid>
+
+        {/* User Status Distribution */}
+        <Grid item xs={12} lg={4} sx={{ width: "30%" }}>
+          <Card sx={{ p: 2, height: "400px" }}>
+            <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
+              User Status Distribution
+            </Typography>
+            <ResponsiveContainer width="100%" height="90%">
+              <PieChart>
+                <Pie
+                  data={userStatusData}
+                  dataKey="value"
+                  outerRadius={100}
+                  label={({ name, percent }) =>
+                    `${name} (${(percent * 100).toFixed(0)}%)`
+                  }
+                >
+                  {userStatusData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
+        </Grid>
+
+        {/* Cycle Tracking */}
+        <Grid item xs={12} lg={8} sx={{ width: "50%" }}>
+          <Card sx={{ p: 2, height: "400px" }}>
+            <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
+              Cycles Tracked per Month
+            </Typography>
+            <ResponsiveContainer width="100%" height="90%">
+              <BarChart data={cycleData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="cycles" fill={BAR_COLOR} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+        </Grid>
+
+        {/* Family Plan Distribution */}
+        <Grid item xs={12} lg={4} sx={{ width: "30%" }}>
+          <Card sx={{ p: 2, height: "400px" }}>
+            <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
+              Family Plan Distribution
+            </Typography>
+            <ResponsiveContainer width="100%" height="90%">
+              <PieChart>
+                <Pie
+                  data={familyPlanData}
+                  dataKey="value"
+                  outerRadius={100}
+                  label={({ name, percent }) =>
+                    `${name} (${(percent * 100).toFixed(0)}%)`
+                  }
+                >
+                  {familyPlanData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[(index + 2) % COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </Card>
+        </Grid>
+
+        {/* Top Blogs */}
+        <Grid item xs={12}>
+          <Card sx={{ p: 3 }}>
+            <Typography variant="h6" sx={{ mb: 3, color: "#374151" }}>
+              Top Performing Blogs
+            </Typography>
+            <Grid container spacing={2}>
+              {topBlogs.map((blog, index) => (
+                <Grid item xs={12} md={6} lg={4} key={index}>
+                  <Paper sx={{ p: 2, border: "1px solid #e5e7eb" }}>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{ fontWeight: "bold", mb: 1 }}
+                    >
+                      {blog.title}
+                    </Typography>
+                    <Box
+                      display="flex"
+                      justifyContent="space-between"
+                      alignItems="center"
+                    >
+                      <Chip
+                        label={`${blog.reactions} Reactions`}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                      />
+                      <Typography variant="caption" color="textSecondary">
+                        #{index + 1}
+                      </Typography>
+                    </Box>
+                  </Paper>
+                </Grid>
+              ))}
             </Grid>
-          ))}
+          </Card>
         </Grid>
-
-        <Grid container spacing={3} mb={4}>
-          <Grid item xs={12} lg={8}>
-            <ChartCard title="User Acquisition Growth" loading={loading}>
-              <ResponsiveContainer>
-                <AreaChart data={data.growth}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="#f1f5f9"
-                  />
-                  <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                  <YAxis axisLine={false} tickLine={false} />
-                  <Tooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="users"
-                    stroke="#6366f1"
-                    strokeWidth={3}
-                    fillOpacity={0.1}
-                    fill="#6366f1"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </Grid>
-          <Grid item xs={12} lg={4}>
-            <ChartCard title="Family Plan Adoption" loading={loading}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie
-                    data={data.plans}
-                    dataKey="value"
-                    innerRadius={70}
-                    outerRadius={100}
-                    paddingAngle={8}
-                  >
-                    {data.plans.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend verticalAlign="bottom" />
-                </PieChart>
-              </ResponsiveContainer>
-            </ChartCard>
-          </Grid>
-        </Grid>
-      </div>
-
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={() => setError(null)}
-      >
-        <Alert
-          onClose={() => setError(null)}
-          severity="error"
-          sx={{ width: "100%" }}
-        >
-          {error}
-        </Alert>
-      </Snackbar>
+      </Grid>
     </Container>
   );
 };
