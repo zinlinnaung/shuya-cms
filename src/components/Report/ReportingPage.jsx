@@ -294,11 +294,11 @@ const ReportingPage = () => {
       >
         <Box>
           <Typography variant="h4" fontWeight={800} color="#0f172a">
-            Reporting Hub
+            Dashboard
           </Typography>
-          <Typography variant="body2" color="textSecondary">
+          {/* <Typography variant="body2" color="textSecondary">
             Track real-time platform metrics
-          </Typography>
+          </Typography> */}
         </Box>
         <Stack direction="row" spacing={1.5}>
           <Button
