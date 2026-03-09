@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import FavoriteIcon from "@mui/icons-material/Favorite";
+import BookmarkIcon from "@mui/icons-material/Bookmark";
 import {
   Box,
   Grid,
@@ -78,7 +80,7 @@ const BlogPage = () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ base64 }),
-        }
+        },
       );
       if (!res.ok) throw new Error("Image upload failed");
       const data = await res.json();
@@ -160,7 +162,7 @@ const BlogPage = () => {
   };
 
   const filteredBlogs = blogs.filter((blog) =>
-    blog.title.toLowerCase().includes(search.toLowerCase())
+    blog.title.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -226,6 +228,7 @@ const BlogPage = () => {
                     </Typography>
 
                     {/* 🔥 Show publish/scheduled status */}
+                    {/* 🔥 Show publish/scheduled status */}
                     <Box mt={1}>
                       {blog.isPublished ? (
                         <Chip
@@ -237,7 +240,7 @@ const BlogPage = () => {
                       ) : (
                         <Chip
                           label={`Scheduled for ${dayjs(
-                            blog.scheduledAt
+                            blog.scheduledAt,
                           ).format("MMM D, YYYY h:mm A")}`}
                           color="warning"
                           size="small"
@@ -246,6 +249,41 @@ const BlogPage = () => {
                       )}
                     </Box>
 
+                    {/* 🔥 Show Reactions and Bookmarks Counts */}
+                    <Box
+                      display="flex"
+                      alignItems="center"
+                      gap={2}
+                      mt={1.5}
+                      mb={1}
+                    >
+                      <Box display="flex" alignItems="center" gap={0.5}>
+                        <FavoriteIcon
+                          sx={{ color: "#ec407a", fontSize: "18px" }}
+                        />
+                        <Typography
+                          variant="body2"
+                          fontWeight="bold"
+                          color="text.secondary"
+                        >
+                          {blog._count?.BlogReaction || blog.reaction || 0}
+                        </Typography>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap={0.5}>
+                        <BookmarkIcon
+                          sx={{ color: "#757575", fontSize: "18px" }}
+                        />
+                        <Typography
+                          variant="body2"
+                          fontWeight="bold"
+                          color="text.secondary"
+                        >
+                          {blog._count?.BookMark || 0}
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    {/* Edit & Delete Buttons */}
                     <Box mt={2} display="flex" justifyContent="space-between">
                       <Button
                         variant="contained"

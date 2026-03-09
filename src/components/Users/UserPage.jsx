@@ -35,7 +35,7 @@ export default function UserTable() {
 
   // --- Export State ---
   const [exportStartDate, setExportStartDate] = useState(
-    dayjs().subtract(7, "day")
+    dayjs().subtract(7, "day"),
   );
   const [exportEndDate, setExportEndDate] = useState(dayjs());
   const [isExporting, setIsExporting] = useState(false);
@@ -122,7 +122,7 @@ export default function UserTable() {
         // Attempt to parse non-OK response for detailed error message
         const text = await response.text();
         throw new Error(
-          `Export failed (${response.status}): ${text.slice(0, 100)}...`
+          `Export failed (${response.status}): ${text.slice(0, 100)}...`,
         );
       }
 
@@ -173,7 +173,7 @@ export default function UserTable() {
       sortable: false,
       filterable: false,
     },
-    { field: "id", headerName: "ID", width: 70 },
+    // { field: "id", headerName: "ID", width: 70 },
     { field: "name", headerName: "Name", flex: 1 },
     { field: "phone", headerName: "Phone", flex: 1 },
     {

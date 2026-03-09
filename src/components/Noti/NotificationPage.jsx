@@ -27,15 +27,20 @@ import {
   DialogContent,
   DialogActions,
   Pagination,
+  InputAdornment,
+  IconButton,
+  Popover,
 } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import MoodIcon from "@mui/icons-material/Mood";
+import EmojiPicker from "emoji-picker-react";
 import axios from "axios";
 
 // --- Configuration ---
 const API_BASE = "https://shuyaapi.tharapa.ai/api/noti";
-const HISTORY_LIMIT = 5; // Items per page for History List
+const HISTORY_LIMIT = 5;
 
 const NotificationPage = () => {
   // =============================
@@ -74,16 +79,19 @@ const NotificationPage = () => {
   const [editItem, setEditItem] = useState(null);
 
   // =============================
+  // 5. Emoji Picker States
+  // =============================
+  const [emojiAnchorEl, setEmojiAnchorEl] = useState(null);
+  const [activeInputArea, setActiveInputArea] = useState(""); // 'title', 'content', 'editTitle', 'editContent'
+
+  // =============================
   // Fetch Functions
   // =============================
   const fetchHistory = async (page = currentPage) => {
     setHistoryLoading(true);
     try {
       const res = await axios.get(`${API_BASE}/history`, {
-        params: {
-          page: page,
-          limit: HISTORY_LIMIT,
-        },
+        params: { page: page, limit: HISTORY_LIMIT },
       });
       setHistory(res.data.data);
       setTotalPages(res.data.totalPages);
@@ -110,10 +118,32 @@ const NotificationPage = () => {
     fetchScheduleList();
   }, []);
 
-  // Handler for pagination control
   const handlePageChange = (event, value) => {
     setCurrentPage(value);
     fetchHistory(value);
+  };
+
+  // =============================
+  // Emoji Handlers (Best UX)
+  // =============================
+  const handleOpenEmojiPicker = (event, inputName) => {
+    setEmojiAnchorEl(event.currentTarget);
+    setActiveInputArea(inputName);
+  };
+
+  const handleCloseEmojiPicker = () => {
+    setEmojiAnchorEl(null);
+    setActiveInputArea("");
+  };
+
+  const handleEmojiClick = (emojiObject) => {
+    const emoji = emojiObject.emoji;
+    if (activeInputArea === "title") setTitle((prev) => prev + emoji);
+    else if (activeInputArea === "content") setContent((prev) => prev + emoji);
+    else if (activeInputArea === "editTitle")
+      setEditItem((prev) => ({ ...prev, title: prev.title + emoji }));
+    else if (activeInputArea === "editContent")
+      setEditItem((prev) => ({ ...prev, content: prev.content + emoji }));
   };
 
   // =============================
@@ -128,7 +158,6 @@ const NotificationPage = () => {
       });
       return;
     }
-
     if (isScheduled && !scheduledTime) {
       setSnackbar({
         open: true,
@@ -137,7 +166,6 @@ const NotificationPage = () => {
       });
       return;
     }
-
     setLoading(true);
     try {
       if (isScheduled) {
@@ -148,13 +176,8 @@ const NotificationPage = () => {
           date: scheduledTime,
         });
       } else {
-        await axios.post(`${API_BASE}/send-all`, {
-          title,
-          content,
-          receiver,
-        });
+        await axios.post(`${API_BASE}/send-all`, { title, content, receiver });
       }
-
       setSnackbar({
         open: true,
         message: isScheduled
@@ -162,19 +185,14 @@ const NotificationPage = () => {
           : "Notification sent successfully!",
         severity: "success",
       });
-
-      // Clear form
       setTitle("");
       setContent("");
       setReceiver("all");
       setIsScheduled(false);
       setScheduledTime(null);
-
-      // Refresh lists
       fetchHistory(currentPage);
       fetchScheduleList();
     } catch (error) {
-      console.error(error);
       setSnackbar({
         open: true,
         message: "Failed to send notification!",
@@ -185,7 +203,7 @@ const NotificationPage = () => {
   };
 
   // =============================
-  // Edit / Delete Scheduled Notification
+  // Edit / Delete Scheduled
   // =============================
   const handleEdit = (item) => {
     setEditItem(item);
@@ -201,7 +219,6 @@ const NotificationPage = () => {
       });
       return;
     }
-
     try {
       await axios.patch(`${API_BASE}/schedule/${editItem.id}`, editItem);
       setSnackbar({
@@ -212,7 +229,6 @@ const NotificationPage = () => {
       setEditModalOpen(false);
       fetchScheduleList();
     } catch (err) {
-      console.error("Failed to update", err);
       setSnackbar({
         open: true,
         message: "Failed to update schedule!",
@@ -233,7 +249,6 @@ const NotificationPage = () => {
       });
       fetchScheduleList();
     } catch (err) {
-      console.error("Failed to delete schedule", err);
       setSnackbar({
         open: true,
         message: "Failed to delete schedule!",
@@ -242,9 +257,6 @@ const NotificationPage = () => {
     }
   };
 
-  // =============================
-  // Render
-  // =============================
   return (
     <>
       <CssBaseline />
@@ -260,18 +272,16 @@ const NotificationPage = () => {
           Notification Management
         </Typography>
 
-        {/* Main Grid Container for 3-Column Layout (4:4:4) */}
         <Grid container spacing={4}>
-          {/* 1. Create Notification Card (Left) */}
-          {/* Changed lg={3} to lg={4} to balance the 3-card layout */}
-          <Grid item xs={10} maxWidth={"50%"} lg={2}>
+          {/* 1. Create Notification Card */}
+          <Grid item xs={10} maxWidth={"50%"} lg={3}>
             <Card
               variant="outlined"
               sx={{
                 borderRadius: "12px",
                 p: 2,
                 backgroundColor: "#ffffff",
-                height: "100%", // Ensures all cards are the same height if content is short
+                height: "100%",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
               }}
             >
@@ -288,6 +298,18 @@ const NotificationPage = () => {
                   size="small"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleOpenEmojiPicker(e, "title")}
+                        >
+                          <MoodIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
 
                 <TextField
@@ -300,6 +322,21 @@ const NotificationPage = () => {
                   size="small"
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment
+                        position="end"
+                        sx={{ alignSelf: "flex-end", mb: 1 }}
+                      >
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleOpenEmojiPicker(e, "content")}
+                        >
+                          <MoodIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
 
                 <FormControl fullWidth margin="dense" size="small">
@@ -349,12 +386,7 @@ const NotificationPage = () => {
                     variant="contained"
                     disabled={loading}
                     onClick={handleSendNotification}
-                    sx={{
-                      borderRadius: "8px",
-                      px: 3,
-                      py: 1,
-                      minWidth: 120,
-                    }}
+                    sx={{ borderRadius: "8px", px: 3, py: 1, minWidth: 120 }}
                   >
                     {loading ? (
                       <CircularProgress size={20} color="inherit" />
@@ -369,15 +401,15 @@ const NotificationPage = () => {
             </Card>
           </Grid>
 
-          {/* 2. Notification History Card (Middle) */}
-          <Grid item xs={12} lg={6} width={"45%"}>
+          {/* 2. Notification History Card */}
+          <Grid item xs={12} lg={4.5}>
             <Card
               variant="outlined"
               sx={{
                 borderRadius: "12px",
                 p: 2,
                 backgroundColor: "#ffffff",
-                height: "100%", // Ensures all cards are the same height
+                height: "100%",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
               }}
             >
@@ -396,7 +428,7 @@ const NotificationPage = () => {
                   </Box>
                 ) : (
                   <>
-                    <Table size="medium" sx={{ width: "100%" }}>
+                    <Table size="small" sx={{ width: "100%" }}>
                       <TableHead>
                         <TableRow sx={{ backgroundColor: "#f0f8ff" }}>
                           <TableCell sx={{ fontWeight: "bold" }}>
@@ -423,7 +455,7 @@ const NotificationPage = () => {
                               <TableCell>{item.title}</TableCell>
                               <TableCell
                                 sx={{
-                                  maxWidth: 150, // Reduced max width for 4-column space
+                                  maxWidth: 120,
                                   whiteSpace: "nowrap",
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
@@ -439,7 +471,6 @@ const NotificationPage = () => {
                         )}
                       </TableBody>
                     </Table>
-                    {/* Pagination Component */}
                     {totalPages > 1 && (
                       <Box mt={3} display="flex" justifyContent="center">
                         <Pagination
@@ -447,8 +478,6 @@ const NotificationPage = () => {
                           page={currentPage}
                           onChange={handlePageChange}
                           color="primary"
-                          showFirstButton
-                          showLastButton
                         />
                       </Box>
                     )}
@@ -458,16 +487,15 @@ const NotificationPage = () => {
             </Card>
           </Grid>
 
-          {/* 3. Scheduled Notifications Card (Right) */}
-          <Grid item xs={12} lg={12} sx={{ width: "100%" }}>
+          {/* 3. Scheduled Notifications Card */}
+          <Grid item xs={12} lg={4.5}>
             <Card
               variant="outlined"
               sx={{
                 borderRadius: "12px",
                 p: 2,
-
                 backgroundColor: "#ffffff",
-                height: "100%", // Ensures all cards are the same height
+                height: "100%",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
               }}
             >
@@ -485,16 +513,11 @@ const NotificationPage = () => {
                     <CircularProgress />
                   </Box>
                 ) : (
-                  <Table size="medium">
+                  <Table size="small">
                     <TableHead>
                       <TableRow sx={{ backgroundColor: "#f0f8ff" }}>
                         <TableCell sx={{ fontWeight: "bold" }}>Title</TableCell>
-                        <TableCell sx={{ fontWeight: "bold" }}>
-                          Receiver
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: "bold" }}>
-                          Scheduled Time
-                        </TableCell>
+                        <TableCell sx={{ fontWeight: "bold" }}>Time</TableCell>
                         <TableCell align="right" sx={{ fontWeight: "bold" }}>
                           Actions
                         </TableCell>
@@ -503,7 +526,7 @@ const NotificationPage = () => {
                     <TableBody>
                       {scheduleList.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={4} align="center">
+                          <TableCell colSpan={3} align="center">
                             No scheduled notifications
                           </TableCell>
                         </TableRow>
@@ -511,7 +534,6 @@ const NotificationPage = () => {
                         scheduleList.map((item) => (
                           <TableRow key={item.id} hover>
                             <TableCell>{item.title}</TableCell>
-                            <TableCell>{item.receiver}</TableCell>
                             <TableCell>
                               {new Date(item.date).toLocaleString()}
                             </TableCell>
@@ -519,7 +541,7 @@ const NotificationPage = () => {
                               <Button
                                 size="small"
                                 variant="outlined"
-                                sx={{ mr: 1 }}
+                                sx={{ mr: 1, mb: 1 }}
                                 onClick={() => handleEdit(item)}
                               >
                                 Edit
@@ -528,9 +550,10 @@ const NotificationPage = () => {
                                 size="small"
                                 variant="outlined"
                                 color="error"
+                                sx={{ mb: 1 }}
                                 onClick={() => handleDelete(item.id)}
                               >
-                                Delete
+                                Del
                               </Button>
                             </TableCell>
                           </TableRow>
@@ -543,6 +566,21 @@ const NotificationPage = () => {
             </Card>
           </Grid>
         </Grid>
+
+        {/* Global Emoji Picker Popover */}
+        <Popover
+          open={Boolean(emojiAnchorEl)}
+          anchorEl={emojiAnchorEl}
+          onClose={handleCloseEmojiPicker}
+          anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+          transformOrigin={{ vertical: "top", horizontal: "right" }}
+        >
+          <EmojiPicker
+            onEmojiClick={handleEmojiClick}
+            searchDisabled={false}
+            skinTonesDisabled={true}
+          />
+        </Popover>
 
         {/* Edit Modal */}
         <Dialog
@@ -563,6 +601,18 @@ const NotificationPage = () => {
                   onChange={(e) =>
                     setEditItem({ ...editItem, title: e.target.value })
                   }
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleOpenEmojiPicker(e, "editTitle")}
+                        >
+                          <MoodIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
                 <TextField
                   label="Content"
@@ -574,6 +624,23 @@ const NotificationPage = () => {
                   onChange={(e) =>
                     setEditItem({ ...editItem, content: e.target.value })
                   }
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment
+                        position="end"
+                        sx={{ alignSelf: "flex-end", mb: 1 }}
+                      >
+                        <IconButton
+                          size="small"
+                          onClick={(e) =>
+                            handleOpenEmojiPicker(e, "editContent")
+                          }
+                        >
+                          <MoodIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
                 />
                 <LocalizationProvider dateAdapter={AdapterDateFns}>
                   <DateTimePicker
