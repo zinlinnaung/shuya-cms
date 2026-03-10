@@ -60,7 +60,6 @@ const ReportingPage = () => {
   const [planFilter, setPlanFilter] = useState("All");
 
   const [reportData, setReportData] = useState([]);
-  // Changed from userGrowthData to ageSegmentationData
   const [ageSegmentationData, setAgeSegmentationData] = useState([]);
   const [userStatusData, setUserStatusData] = useState([]);
   const [familyPlanData, setFamilyPlanData] = useState([]);
@@ -82,6 +81,7 @@ const ReportingPage = () => {
         "https://shuyaapi.tharapa.ai/api/dashboard/stats",
         { params: query },
       );
+
       setReportData([
         {
           name: "Total Users",
@@ -115,14 +115,11 @@ const ReportingPage = () => {
         },
       ]);
 
-      // Updated the first endpoint to age-segmentation
       const [ageRes, statusRes, planRes, cycleRes, blogsRes, channelsRes] =
         await Promise.all([
           axios.get(
             "https://shuyaapi.tharapa.ai/api/dashboard/age-segmentation",
-            {
-              params: query,
-            },
+            { params: query },
           ),
           axios.get("https://shuyaapi.tharapa.ai/api/dashboard/user-status", {
             params: query,
@@ -136,10 +133,13 @@ const ReportingPage = () => {
           axios.get("https://shuyaapi.tharapa.ai/api/dashboard/top-blogs", {
             params: query,
           }),
-          axios.get("https://shuyaapi.tharapa.ai/api/channels"),
+          // Added params: query here so channels get filtered by date too
+          axios.get("https://shuyaapi.tharapa.ai/api/channels", {
+            params: query,
+          }),
         ]);
 
-      setAgeSegmentationData(ageRes.data); // Mapping the age range data
+      setAgeSegmentationData(ageRes.data);
       setUserStatusData(statusRes.data);
       setFamilyPlanData(planRes.data);
       setCycleData(cycleRes.data);
@@ -386,8 +386,6 @@ const ReportingPage = () => {
 
       {/* Charts Grid */}
       <Grid container spacing={3}>
-        {/* MODIFIED: Age Segmentation Chart (Replaces User Growth) */}
-        {/* Age Segmentation Chart */}
         <Grid item xs={12} lg={10} sx={{ width: "50%" }}>
           <Card sx={{ p: 2, height: "400px" }}>
             <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
@@ -396,12 +394,10 @@ const ReportingPage = () => {
             <ResponsiveContainer width="100%" height="90%">
               <BarChart data={ageSegmentationData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                {/* Changed dataKey to "name" to match your JSON */}
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
                 <Bar
-                  /* Changed dataKey to "value" to match your JSON */
                   dataKey="value"
                   fill={COLORS[0]}
                   radius={[4, 4, 0, 0]}
@@ -412,7 +408,6 @@ const ReportingPage = () => {
           </Card>
         </Grid>
 
-        {/* User Status Distribution */}
         <Grid item xs={12} lg={4} sx={{ width: "30%" }}>
           <Card sx={{ p: 2, height: "400px" }}>
             <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
@@ -441,7 +436,6 @@ const ReportingPage = () => {
           </Card>
         </Grid>
 
-        {/* Cycle Tracking */}
         <Grid item xs={12} lg={8} sx={{ width: "50%" }}>
           <Card sx={{ p: 2, height: "400px" }}>
             <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
@@ -459,7 +453,6 @@ const ReportingPage = () => {
           </Card>
         </Grid>
 
-        {/* Family Plan Distribution */}
         <Grid item xs={12} lg={4} sx={{ width: "30%" }}>
           <Card sx={{ p: 2, height: "400px" }}>
             <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
@@ -488,7 +481,6 @@ const ReportingPage = () => {
           </Card>
         </Grid>
 
-        {/* Top Blogs */}
         <Grid item xs={12}>
           <Card sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ mb: 3, color: "#374151" }}>
