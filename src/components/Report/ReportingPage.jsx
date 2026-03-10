@@ -63,7 +63,8 @@ const ReportingPage = () => {
   const [ageSegmentationData, setAgeSegmentationData] = useState([]);
   const [userStatusData, setUserStatusData] = useState([]);
   const [familyPlanData, setFamilyPlanData] = useState([]);
-  const [cycleData, setCycleData] = useState([]);
+  // Changed from cycleData to locationData
+  const [locationData, setLocationData] = useState([]);
   const [topBlogs, setTopBlogs] = useState([]);
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -115,7 +116,7 @@ const ReportingPage = () => {
         },
       ]);
 
-      const [ageRes, statusRes, planRes, cycleRes, blogsRes, channelsRes] =
+      const [ageRes, statusRes, planRes, locationRes, blogsRes, channelsRes] =
         await Promise.all([
           axios.get(
             "https://shuyaapi.tharapa.ai/api/dashboard/age-segmentation",
@@ -127,13 +128,16 @@ const ReportingPage = () => {
           axios.get("https://shuyaapi.tharapa.ai/api/dashboard/family-plan", {
             params: query,
           }),
-          axios.get("https://shuyaapi.tharapa.ai/api/dashboard/cycle-data", {
-            params: query,
-          }),
+          // Replaced cycle-data endpoint with location-segmentation
+          axios.get(
+            "https://shuyaapi.tharapa.ai/api/dashboard/location-segmentation",
+            {
+              params: query,
+            },
+          ),
           axios.get("https://shuyaapi.tharapa.ai/api/dashboard/top-blogs", {
             params: query,
           }),
-          // Added params: query here so channels get filtered by date too
           axios.get("https://shuyaapi.tharapa.ai/api/channels", {
             params: query,
           }),
@@ -142,7 +146,7 @@ const ReportingPage = () => {
       setAgeSegmentationData(ageRes.data);
       setUserStatusData(statusRes.data);
       setFamilyPlanData(planRes.data);
-      setCycleData(cycleRes.data);
+      setLocationData(locationRes.data); // Set location data here
       setTopBlogs(blogsRes.data);
       setChannels(channelsRes.data);
     } catch (err) {
@@ -436,18 +440,26 @@ const ReportingPage = () => {
           </Card>
         </Grid>
 
+        {/* Updated Grid Section for Location Segmentation */}
         <Grid item xs={12} lg={8} sx={{ width: "50%" }}>
           <Card sx={{ p: 2, height: "400px" }}>
             <Typography variant="h6" sx={{ mb: 2, color: "#374151" }}>
-              Cycles Tracked per Month
+              Location Segmentation
             </Typography>
             <ResponsiveContainer width="100%" height="90%">
-              <BarChart data={cycleData}>
+              <BarChart data={locationData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                <XAxis dataKey="month" />
+                <XAxis dataKey="name" />{" "}
+                {/* Assuming your API returns 'name' for the location */}
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="cycles" fill={BAR_COLOR} radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="value"
+                  fill={BAR_COLOR}
+                  radius={[4, 4, 0, 0]}
+                  name="Users"
+                />{" "}
+                {/* Assuming 'value' is the count */}
               </BarChart>
             </ResponsiveContainer>
           </Card>
