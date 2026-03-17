@@ -22,6 +22,7 @@ import AddIcon from "@mui/icons-material/Add";
 import dayjs from "dayjs"; // 🔥 NEW
 import { LocalizationProvider, DateTimePicker } from "@mui/x-date-pickers"; // 🔥 NEW
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs"; // 🔥 NEW
+import { Tabs, Tab } from "@mui/material";
 
 const API_URL = "https://shuyaapi.tharapa.ai/api/blog";
 const UPLOAD_URL = "https://shuyaapi.tharapa.ai/api/s3/upload";
@@ -41,6 +42,7 @@ const BlogPage = () => {
   });
   const [imageFile, setImageFile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [tabValue, setTabValue] = useState(0);
 
   // Fetch blogs
   const fetchBlogs = async () => {
@@ -80,7 +82,7 @@ const BlogPage = () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ base64 }),
-        },
+        }
       );
       if (!res.ok) throw new Error("Image upload failed");
       const data = await res.json();
@@ -161,9 +163,21 @@ const BlogPage = () => {
     setOpenDialog(true);
   };
 
-  const filteredBlogs = blogs.filter((blog) =>
-    blog.title.toLowerCase().includes(search.toLowerCase()),
-  );
+  // const filteredBlogs = blogs.filter((blog) =>
+  //   blog.title.toLowerCase().includes(search.toLowerCase()),
+  // );
+  const filteredBlogs = blogs.filter((blog) => {
+    // Search filter
+    const matchesSearch = blog.title
+      .toLowerCase()
+      .includes(search.toLowerCase());
+
+    // Tab filter (0 for published, 1 for scheduled)
+    const matchesTab =
+      tabValue === 0 ? blog.isPublished === true : blog.isPublished === false;
+
+    return matchesSearch && matchesTab;
+  });
 
   return (
     <Box
@@ -189,6 +203,25 @@ const BlogPage = () => {
           onChange={(e) => setSearch(e.target.value)}
           sx={{ backgroundColor: "#fff", borderRadius: "8px", width: "250px" }}
         />
+      </Box>
+
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+        <Tabs
+          value={tabValue}
+          onChange={(e, newValue) => setTabValue(newValue)}
+          TabIndicatorProps={{
+            style: { backgroundColor: "#d81b60" },
+          }}
+        >
+          <Tab
+            label="Published"
+            sx={{ "&.Mui-selected": { color: "#d81b60", fontWeight: "bold" } }}
+          />
+          <Tab
+            label="Scheduled"
+            sx={{ "&.Mui-selected": { color: "#d81b60", fontWeight: "bold" } }}
+          />
+        </Tabs>
       </Box>
 
       {/* Blog List */}
@@ -240,7 +273,7 @@ const BlogPage = () => {
                       ) : (
                         <Chip
                           label={`Scheduled for ${dayjs(
-                            blog.scheduledAt,
+                            blog.scheduledAt
                           ).format("MMM D, YYYY h:mm A")}`}
                           color="warning"
                           size="small"
