@@ -97,6 +97,11 @@ const BlogPage = () => {
   const handleSaveBlog = async () => {
     if (!newBlog.title || !newBlog.content) return;
 
+    const scheduledAtValue =
+      newBlog.scheduledAt && dayjs(newBlog.scheduledAt).isValid()
+        ? dayjs(newBlog.scheduledAt).toISOString()
+        : null;
+
     try {
       setSaving(true);
 
@@ -110,10 +115,8 @@ const BlogPage = () => {
       const payload = {
         ...newBlog,
         imageUrl,
-        scheduledAt: newBlog.scheduledAt
-          ? new Date(newBlog.scheduledAt).toISOString()
-          : null,
-        isPublished: !newBlog.scheduledAt, // publish immediately if no schedule
+        scheduledAt: scheduledAtValue,
+        isPublished: !scheduledAtValue, // publish immediately if no schedule
       };
 
       if (editingBlog) {
