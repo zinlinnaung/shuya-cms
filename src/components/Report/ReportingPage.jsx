@@ -73,14 +73,14 @@ const ReportingPage = () => {
     try {
       setLoading(true);
       const query = {};
-      if (fromDate) query.from = fromDate;
-      if (toDate) query.to = toDate;
+      if (fromDate) query.from = `${fromDate} 00:00:00`;
+      if (toDate) query.to = `${toDate} 23:59:59`;
       if (statusFilter && statusFilter !== "All") query.status = statusFilter;
       if (planFilter && planFilter !== "All") query.plan = planFilter;
 
       const statsRes = await axios.get(
         "https://shuyaapi.tharapa.ai/api/dashboard/stats",
-        { params: query },
+        { params: query }
       );
 
       setReportData([
@@ -120,7 +120,7 @@ const ReportingPage = () => {
         await Promise.all([
           axios.get(
             "https://shuyaapi.tharapa.ai/api/dashboard/age-segmentation",
-            { params: query },
+            { params: query }
           ),
           axios.get("https://shuyaapi.tharapa.ai/api/dashboard/user-status", {
             params: query,
@@ -133,7 +133,7 @@ const ReportingPage = () => {
             "https://shuyaapi.tharapa.ai/api/dashboard/location-segmentation",
             {
               params: query,
-            },
+            }
           ),
           axios.get("https://shuyaapi.tharapa.ai/api/dashboard/top-blogs", {
             params: query,
@@ -158,7 +158,7 @@ const ReportingPage = () => {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [fromDate, toDate, statusFilter, planFilter]);
+  }, []);
 
   const exportToCSV = () => {
     const headers = ["Metric,Value"];
@@ -318,6 +318,20 @@ const ReportingPage = () => {
                 <MenuItem value="Conceiving">Conceiving</MenuItem>
                 <MenuItem value="AvoidPregnant">Avoid Pregnancy</MenuItem>
               </TextField>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <Button
+                variant="contained"
+                fullWidth
+                onClick={fetchDashboardData}
+                sx={{
+                  backgroundColor: "#6366f1",
+                  "&:hover": { backgroundColor: "#4f46e5" },
+                  height: "40px",
+                }}
+              >
+                Apply Filters
+              </Button>
             </Grid>
           </Grid>
         </Paper>
