@@ -27,6 +27,35 @@ import { Tabs, Tab } from "@mui/material";
 const API_URL = "https://shuyaapi.tharapa.ai/api/blog";
 const UPLOAD_URL = "https://shuyaapi.tharapa.ai/api/s3/upload";
 
+const buildImageUploadName = (file) => {
+  const safeBaseName =
+    file.name
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[^a-zA-Z0-9_-]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "blog";
+
+  const uniqueId =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+  return `${safeBaseName}-${uniqueId}`;
+};
+
+const withCacheBust = (url, version) => {
+  if (!url || !version) return url;
+
+  try {
+    const imageUrl = new URL(url);
+    const cacheVersion = new Date(version).getTime() || version;
+    imageUrl.searchParams.set("v", cacheVersion);
+    return imageUrl.toString();
+  } catch {
+    const separator = url.includes("?") ? "&" : "?";
+    return `${url}${separator}v=${encodeURIComponent(version)}`;
+  }
+};
+
 const BlogPage = () => {
   const [search, setSearch] = useState("");
   const [blogs, setBlogs] = useState([]);
@@ -75,15 +104,15 @@ const BlogPage = () => {
   const uploadImage = async (file) => {
     try {
       const base64 = await toBase64(file);
-      const filename = file.name.replace(/\s+/g, "_");
-      const res = await fetch(
-        `${UPLOAD_URL}?prefix=blogs&filename=${filename}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ base64 }),
-        }
-      );
+      const params = new URLSearchParams({
+        prefix: "blogs/",
+        filename: buildImageUploadName(file),
+      });
+      const res = await fetch(`${UPLOAD_URL}?${params.toString()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64 }),
+      });
       if (!res.ok) throw new Error("Image upload failed");
       const data = await res.json();
       return data.url || data.Location || "";
@@ -248,7 +277,10 @@ const BlogPage = () => {
                 >
                   <CardMedia
                     component="img"
-                    image={blog.imageUrl}
+                    image={withCacheBust(
+                      blog.imageUrl,
+                      blog.updatedAt || blog.createdAt
+                    )}
                     alt={blog.title}
                     sx={{ height: 180, objectFit: "cover" }}
                   />
@@ -450,7 +482,12 @@ const BlogPage = () => {
               <Typography variant="caption">Preview:</Typography>
               <img
                 src={
-                  imageFile ? URL.createObjectURL(imageFile) : newBlog.imageUrl
+                  imageFile
+                    ? URL.createObjectURL(imageFile)
+                    : withCacheBust(
+                        newBlog.imageUrl,
+                        editingBlog?.updatedAt || editingBlog?.createdAt
+                      )
                 }
                 alt="preview"
                 style={{
