@@ -3,7 +3,6 @@ import FavoriteIcon from "@mui/icons-material/Favorite";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
 import {
   Box,
-  Grid,
   Card,
   CardContent,
   CardMedia,
@@ -72,6 +71,8 @@ const BlogPage = () => {
   const [imageFile, setImageFile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [tabValue, setTabValue] = useState(0);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Fetch blogs
   const fetchBlogs = async () => {
@@ -174,12 +175,19 @@ const BlogPage = () => {
     }
   };
 
-  const handleDeleteBlog = async (id) => {
+  const handleDeleteBlog = async () => {
+    if (!deleteTarget) return;
+
     try {
+      setDeleting(true);
+      const id = deleteTarget.id;
       await fetch(`${API_URL}/${id}`, { method: "DELETE" });
       setBlogs(blogs.filter((b) => b.id !== id));
+      setDeleteTarget(null);
     } catch (err) {
       console.error(err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -263,16 +271,29 @@ const BlogPage = () => {
             <CircularProgress />
           </Box>
         ) : (
-          <Grid container spacing={3}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: {
+                xs: "1fr",
+                md: "repeat(2, minmax(0, 1fr))",
+              },
+              gap: 3,
+              alignItems: "stretch",
+            }}
+          >
             {filteredBlogs.map((blog) => (
-              <Grid item xs={12} sm={6} md={4} key={blog.id}>
+              <Box key={blog.id} sx={{ display: "flex", minWidth: 0 }}>
                 <Card
                   sx={{
                     borderRadius: "16px",
                     backgroundColor: "#fff",
                     boxShadow: 3,
-                    height: "400px",
-                    width: "500px",
+                    display: "flex",
+                    flexDirection: "column",
+                    height: "100%",
+                    minHeight: "410px",
+                    width: "100%",
                   }}
                 >
                   <CardMedia
@@ -282,16 +303,42 @@ const BlogPage = () => {
                       blog.updatedAt || blog.createdAt
                     )}
                     alt={blog.title}
-                    sx={{ height: 180, objectFit: "cover" }}
+                    sx={{ height: 180, objectFit: "cover", flexShrink: 0 }}
                   />
-                  <CardContent>
+                  <CardContent
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      flexGrow: 1,
+                      minHeight: 0,
+                    }}
+                  >
                     <Typography
                       variant="h6"
-                      sx={{ color: "#d81b60", fontWeight: "bold" }}
+                      sx={{
+                        color: "#d81b60",
+                        fontWeight: "bold",
+                        display: "-webkit-box",
+                        lineHeight: 1.25,
+                        minHeight: "2.5em",
+                        overflow: "hidden",
+                        WebkitBoxOrient: "vertical",
+                        WebkitLineClamp: 2,
+                      }}
                     >
                       {blog.title}
                     </Typography>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        mt: 1,
+                        display: "-webkit-box",
+                        minHeight: "2.8em",
+                        overflow: "hidden",
+                        WebkitBoxOrient: "vertical",
+                        WebkitLineClamp: 2,
+                      }}
+                    >
                       {blog.content.substring(0, 60)}...
                     </Typography>
 
@@ -312,7 +359,15 @@ const BlogPage = () => {
                           ).format("MMM D, YYYY h:mm A")}`}
                           color="warning"
                           size="small"
-                          sx={{ fontSize: "12px" }}
+                          sx={{
+                            fontSize: "12px",
+                            maxWidth: "100%",
+                            "& .MuiChip-label": {
+                              display: "block",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            },
+                          }}
                         />
                       )}
                     </Box>
@@ -352,7 +407,12 @@ const BlogPage = () => {
                     </Box>
 
                     {/* Edit & Delete Buttons */}
-                    <Box mt={2} display="flex" justifyContent="space-between">
+                    <Box
+                      mt="auto"
+                      pt={2}
+                      display="flex"
+                      justifyContent="space-between"
+                    >
                       <Button
                         variant="contained"
                         sx={{
@@ -375,16 +435,16 @@ const BlogPage = () => {
                             color: "#d81b60",
                           },
                         }}
-                        onClick={() => handleDeleteBlog(blog.id)}
+                        onClick={() => setDeleteTarget(blog)}
                       >
                         Delete
                       </Button>
                     </Box>
                   </CardContent>
                 </Card>
-              </Grid>
+              </Box>
             ))}
-          </Grid>
+          </Box>
         )}
       </Box>
 
@@ -518,6 +578,37 @@ const BlogPage = () => {
             ) : (
               "Add"
             )}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(deleteTarget)}
+        onClose={() => {
+          if (!deleting) setDeleteTarget(null);
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ color: "#d81b60", fontWeight: "bold" }}>
+          Delete Blog?
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Are you sure you want to delete "{deleteTarget?.title}"?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={deleting} onClick={() => setDeleteTarget(null)}>
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            disabled={deleting}
+            variant="contained"
+            onClick={handleDeleteBlog}
+          >
+            {deleting ? <CircularProgress size={20} /> : "Delete"}
           </Button>
         </DialogActions>
       </Dialog>
